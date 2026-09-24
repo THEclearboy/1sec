@@ -21,7 +21,11 @@
 
   function analyze() {
     var fs = FS();
-    return H.run(F.load(track(), range(), 'Cadrage').then(function (r) {
+    // Les images doivent être prises à 100 % centré pour mesurer la taille réelle des rushes.
+    H.busy(true, 'Remise à 100 %…');
+    return H.run(B.call('OneSec_resetFraming', { videoTrack: track(), range: range() }).then(function () {
+      return F.load(track(), range(), 'Cadrage');
+    }).then(function (r) {
       fs.seq = r.seq;
       fs.groups = r.groups.map(function (g) { return { id: g.id, name: g.name, media: g.media, starts: g.clips.map(function (c) { return c.start; }) }; });
       render(); H.save();
@@ -30,12 +34,31 @@
     }), function (r) { return r.groups.length + ' rushes (' + r.clips.length + ' plans) analysés'; });
   }
 
+  /**
+   * Taille du rush tel qu'il est affiché à 100 % (en pixels séquence) :
+   * 1) mesurée sur l'image exportée (fiable même si Premiere tourne le clip ou l'ajuste au cadre),
+   * 2) sinon métadonnées, 3) sinon choix manuel.
+   */
+  function displayedSize(g, f) {
+    var fs = FS(), sw = fs.seq.width, sh = fs.seq.height;
+    if (f && f.small && f.box) {
+      var fw = (f.box.x1 - f.box.x0) / f.small.width, fh = (f.box.y1 - f.box.y0) / f.small.height;
+      if (fw > 0.15 && fh > 0.15) return { w: sw * fw, h: sh * fh, source: 'mesuré', fills: fw > 0.97 && fh > 0.97 };
+    }
+    if (fs.manualMedia) return { w: fs.manualMedia.width, h: fs.manualMedia.height, source: 'manuel' };
+    if (g.media && g.media.width) return { w: g.media.width * (g.media.par || 1), h: g.media.height, source: 'métadonnées' };
+    return null;
+  }
+
   function framingFor(g) {
     var fs = FS(), f = F.get(g.id), ps = fs.perRush[g.id] || {};
-    var m = (g.media && g.media.width) ? g.media : (fs.manualMedia || {});
-    if (!m.width || !fs.seq || !fs.seq.width) return null;
+    if (!fs.seq || !fs.seq.width) return null;
+    var d = displayedSize(g, f);
+    if (!d) return null;
     var subject = fs.mode === 'subject' && f && f.subject && f.subject.confidence > 0.15 ? f.subject : { x: 0.5, y: 0.5 };
-    return C.fitFraming(m.width * (m.par || 1), m.height, fs.seq.width, fs.seq.height, subject, { x: ps.x || 0, y: ps.y || 0 });
+    var fr = C.fitFraming(d.w, d.h, fs.seq.width, fs.seq.height, subject, { x: ps.x || 0, y: ps.y || 0 });
+    fr.source = d.source; fr.fills = d.fills;
+    return fr;
   }
 
   function apply() {
@@ -59,7 +82,8 @@
         (r.autoFailed ? '<div class="warn">⚠ Recadrage automatique indisponible sur ' + r.autoFailed + ' clip(s) : cadrage fixe appliqué à la place.</div>' : '') +
         (r.propFailed ? '<div class="err">✖ ' + r.propFailed + ' clip(s) : Échelle / Position non réglables.</div>' : '') +
         (noDims ? '<div class="warn">⚠ ' + noDims + ' clip(s) sans dimensions connues, ignoré(s).</div>' : '') +
-        (r.missing ? '<div class="warn">⚠ ' + r.missing + ' clip(s) introuvable(s) : ré-analysez.</div>' : '');
+        (r.missing ? '<div class="warn">⚠ ' + r.missing + ' clip(s) introuvable(s) : ré-analysez.</div>' : '') +
+        (r.positionUnit ? '<div class="muted">Position en ' + (r.positionUnit === 'pixels' ? 'pixels' : 'valeurs normalisées') + '.</div>' : '');
       return r;
     }), 'Format adapté');
   }
@@ -76,7 +100,7 @@
         B.call('OneSec_setPlayhead', { time: g.starts[0] + 0.1 }).catch(function () {});
       } });
       var fr = framingFor(g);
-      var cap = !f || f.error ? 'pas d\'image' + (f && f.error ? ' : ' + f.error : '') : fr ? (g.media.width + '×' + g.media.height + ' → ' + fr.scale + ' %') : 'dimensions inconnues';
+      var cap = !f || f.error ? 'pas d\'image' + (f && f.error ? ' : ' + f.error : '') : fr ? (fr.fills ? 'remplit déjà le cadre' : 'échelle ' + fr.scale + ' % (' + fr.source + ')') : 'dimensions inconnues';
       card.appendChild(cv);
       card.appendChild(H.el('div', { class: 'cap' }, [H.el('b', { text: g.name, title: g.name }), H.el('span', { text: g.starts.length + ' plan' + (g.starts.length > 1 ? 's' : '') + ' · ' + cap, title: cap })]));
       function slider(label, prop) {
@@ -128,7 +152,7 @@
     sel.value = track();
     H.$('fr-range-only').checked = fs.rangeOnly; H.$('fr-range-only').disabled = !s.music;
     H.$('fr-seq').textContent = fs.seq && fs.seq.width ? fs.seq.width + '×' + fs.seq.height + (fs.seq.height > fs.seq.width ? ' (vertical)' : ' (horizontal)') : 'analysez les plans';
-    var unknown = fs.groups.filter(function (g) { return !(g.media && g.media.width); }).length;
+    var unknown = fs.groups.filter(function (g) { return !displayedSize(g, F.get(g.id)); }).length;
     var mm = H.$('fr-media'), mmRow = H.$('fr-media-row');
     mmRow.classList.toggle('hidden', !fs.groups.length || !unknown);
     mm.value = fs.manualMedia ? fs.manualMedia.width + 'x' + fs.manualMedia.height : '';

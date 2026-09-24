@@ -565,7 +565,8 @@ function OneSec_motionProp(comp, key, fallbackIndex) {
 function OneSec_applyFraming(s) {
   try {
     var a = OneSec_args(s), seq = OneSec_seq(), track = seq.videoTracks[a.videoTrack];
-    var report = { fixed: 0, auto: 0, autoFailed: 0, missing: 0, propFailed: 0 };
+    var report = { fixed: 0, auto: 0, autoFailed: 0, missing: 0, propFailed: 0, positionUnit: null };
+    var sw = seq.frameSizeHorizontal, sh = seq.frameSizeVertical;
     app.enableQE();
     var qeSeq = qe.project.getActiveSequence();
     var autoFx = null, autoNames = ['Auto Reframe', 'Recadrage automatique', 'Automatisch neu einrahmen', 'Reencuadre automático'];
@@ -592,14 +593,32 @@ function OneSec_applyFraming(s) {
       if (!motion) { report.propFailed++; continue; }
       try {
         var ps = OneSec_motionProp(motion, 'scale', 1);
-        if (ps) ps.setValue(it.scale, true);
+        if (ps) { try { if (ps.isTimeVarying()) ps.setTimeVarying(false); } catch (eT) {} ps.setValue(it.scale, true); }
         var pp = OneSec_motionProp(motion, 'position', 0);
-        if (pp) pp.setValue([it.x, it.y], true);
+        if (pp) {
+          try { if (pp.isTimeVarying()) pp.setTimeVarying(false); } catch (eT2) {}
+          var pos = OneSec_positionValue(pp, it.x, it.y, sw, sh);
+          report.positionUnit = pos.unit;
+          pp.setValue(pos.value, true);
+        }
         report.fixed++;
       } catch (e2) { report.propFailed++; }
     }
     return OneSec_ok(report);
   } catch (e) { return OneSec_err(e); }
+}
+
+/**
+ * La Position de Trajectoire est, selon les versions, en pixels ou normalisée (0,5 ; 0,5 = centre).
+ * On déduit l'unité de la valeur courante.
+ */
+function OneSec_positionValue(pp, x, y, sw, sh) {
+  var unit = 'normalized';
+  try {
+    var cur = pp.getValue();
+    if (cur && cur.length >= 2 && (Math.abs(cur[0]) > 2 || Math.abs(cur[1]) > 2)) unit = 'pixels';
+  } catch (e) {}
+  return unit === 'pixels' ? { unit: unit, value: [x, y] } : { unit: unit, value: [x / sw, y / sh] };
 }
 
 /** Remet Échelle 100 % / Position centrée et retire le recadrage automatique. args: { videoTrack, range? } */
@@ -614,7 +633,13 @@ function OneSec_resetFraming(s) {
       if (a.range && (OneSec_secs(c.end) <= a.range.start || st >= a.range.end)) continue;
       var motion = OneSec_findMotion(c);
       if (motion) {
-        try { OneSec_motionProp(motion, 'scale', 1).setValue(100, true); OneSec_motionProp(motion, 'position', 0).setValue([cx, cy], true); } catch (e) {}
+        try {
+          var ps0 = OneSec_motionProp(motion, 'scale', 1), pp0 = OneSec_motionProp(motion, 'position', 0);
+          try { if (ps0.isTimeVarying()) ps0.setTimeVarying(false); } catch (eA) {}
+          try { if (pp0.isTimeVarying()) pp0.setTimeVarying(false); } catch (eB) {}
+          ps0.setValue(100, true);
+          pp0.setValue(OneSec_positionValue(pp0, cx, cy, seq.frameSizeHorizontal, seq.frameSizeVertical).value, true);
+        } catch (e) {}
       }
       var qi = OneSec_qeItem(qeTrack, i);
       if (qi) for (var k = qi.numComponents - 1; k >= 0; k--) {
@@ -703,9 +728,10 @@ function OneSec_applyEffects(s) {
           report.motion++;
         } else if (op.type === 'shake') {
           var motion2 = OneSec_findMotion(clip), pp = OneSec_motionProp(motion2, 'position', 0);
-          var basePos = [cx, cy];
-          try { basePos = pp.getValue(); } catch (eP) {}
-          OneSec_setKeys(pp, clip, op.keys, function (k) { return [basePos[0] + k.dx, basePos[1] + k.dy]; }, mode);
+          var basePos = [cx, cy], norm = false;
+          try { basePos = pp.getValue(); norm = Math.abs(basePos[0]) <= 2 && Math.abs(basePos[1]) <= 2; } catch (eP) {}
+          var sw2 = seq.frameSizeHorizontal, sh2 = seq.frameSizeVertical;
+          OneSec_setKeys(pp, clip, op.keys, function (k) { return norm ? [basePos[0] + k.dx / sw2, basePos[1] + k.dy / sh2] : [basePos[0] + k.dx, basePos[1] + k.dy]; }, mode);
           report.motion++;
         } else if (op.type === 'pulse') {
           if (!OneSec_ensureLumetri(seq, a.videoTrack, clip)) { fail('pulse'); continue; }
