@@ -615,7 +615,7 @@
       Boot.update().then(function (r) {
         top.classList.remove('busy');
         log.textContent = r.output || (r.ok ? 'OK' : 'Échec');
-        if (!r.ok) { top.textContent = '⬇ Mettre à jour'; $('menu').classList.remove('hidden'); toast('Mise à jour impossible : voir le détail dans le menu ⋯', 'err'); return; }
+        if (!r.ok) { top.textContent = '⬇ Mettre à jour'; $('menu').classList.remove('hidden'); toast('Mise à jour impossible : ' + (r.output || '').split('\n')[0].slice(0, 160), 'err'); return; }
         if (r.changed) { toast('Mise à jour installée, rechargement…', 'ok'); setTimeout(Boot.reload, 800); }
         else { top.textContent = '✔ À jour'; top.classList.remove('available'); toast('Le plugin est déjà à jour.', 'ok'); }
       });
@@ -628,6 +628,7 @@
         var top = $('btn-update-top');
         if (r.available) { top.classList.add('available'); top.textContent = '⬇ Mise à jour disponible'; top.title = r.commits + ' nouvelle(s) version(s) : cliquez pour installer sans redémarrer Premiere'; }
         else if (!r.error) { top.textContent = '✔ À jour'; top.classList.remove('available'); }
+        else { top.title = 'Vérification impossible : ' + r.error; }
       });
     }
     checkUpdate();

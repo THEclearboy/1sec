@@ -87,30 +87,61 @@
     try { return localStorage.getItem('onesec.autoReload') !== '0'; } catch (e) { return true; }
   }
 
-  /** git pull dans le dossier du plugin, puis rechargement. */
-  function update() {
+  // ------------------------------------------------ git
+
+  var gitCmd = null;
+  /** Trouve git : PATH, puis emplacements habituels (Premiere peut avoir un PATH sans git). */
+  function findGit() {
     return new Promise(function (resolve) {
-      if (!nodeRequire || !root) return resolve({ ok: false, output: 'Mise à jour disponible uniquement dans Premiere.' });
-      var cp = nodeRequire('child_process');
-      cp.exec('git pull --ff-only', { cwd: root, timeout: 60000 }, function (err, stdout, stderr) {
-        var out = (stdout || '') + (stderr || '');
-        if (err) return resolve({ ok: false, output: out || String(err) });
-        resolve({ ok: true, output: out, changed: !/Already up to date|Déjà à jour/i.test(out) });
+      if (gitCmd) return resolve(gitCmd);
+      if (!nodeRequire) return resolve(null);
+      var cp = nodeRequire('child_process'), fs = nodeRequire('fs');
+      var isWin = navigator.platform.indexOf('Win') === 0;
+      var cands = isWin
+        ? ['git', 'C:\\Program Files\\Git\\cmd\\git.exe', 'C:\\Program Files\\Git\\bin\\git.exe', 'C:\\Program Files (x86)\\Git\\cmd\\git.exe',
+           (process.env.LOCALAPPDATA || '') + '\\Programs\\Git\\cmd\\git.exe', (process.env.USERPROFILE || '') + '\\scoop\\shims\\git.exe']
+        : ['git', '/usr/bin/git', '/usr/local/bin/git', '/opt/homebrew/bin/git', '/Applications/Xcode.app/Contents/Developer/usr/bin/git'];
+      (function tryNext(i) {
+        if (i >= cands.length) return resolve(null);
+        var c = cands[i];
+        if (c !== 'git') { try { if (!fs.existsSync(c)) return tryNext(i + 1); } catch (e) { return tryNext(i + 1); } }
+        cp.execFile(c, ['--version'], { timeout: 10000 }, function (err) {
+          if (err) return tryNext(i + 1);
+          gitCmd = c; resolve(c);
+        });
+      })(0);
+    });
+  }
+
+  function git(args, timeout) {
+    return findGit().then(function (g) {
+      if (!g) throw new Error('git introuvable. Installez Git (https://git-scm.com) puis redémarrez Premiere une fois.');
+      return new Promise(function (resolve, reject) {
+        nodeRequire('child_process').execFile(g, args, { cwd: root, timeout: timeout || 60000 }, function (err, stdout, stderr) {
+          if (err) return reject(new Error((stderr || stdout || String(err)).trim()));
+          resolve(String(stdout));
+        });
       });
     });
   }
 
+  /** Mise à jour : fetch + reset sur la branche distante (ignore les modifications locales), puis rechargement. */
+  function update() {
+    if (!nodeRequire || !root) return Promise.resolve({ ok: false, output: 'Mise à jour disponible uniquement dans Premiere.' });
+    var before = '';
+    return git(['rev-parse', 'HEAD']).then(function (h) { before = h.trim(); return git(['fetch', '--quiet']); })
+      .then(function () { return git(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']); })
+      .then(function (up) { return git(['reset', '--hard', up.trim()]); })
+      .then(function (out) { return git(['rev-parse', 'HEAD']).then(function (h) { return { ok: true, output: out, changed: h.trim() !== before }; }); })
+      .catch(function (e) { return { ok: false, output: e.message }; });
+  }
+
   /** Vérifie s'il existe une mise à jour (git fetch, sans rien modifier). */
   function checkUpdate() {
-    return new Promise(function (resolve) {
-      if (!nodeRequire || !root) return resolve({ available: false });
-      var cp = nodeRequire('child_process');
-      cp.exec('git fetch --quiet && git rev-list --count HEAD..@{u}', { cwd: root, timeout: 30000 }, function (err, stdout) {
-        if (err) return resolve({ available: false, error: String(err) });
-        var n = parseInt(String(stdout).trim(), 10) || 0;
-        resolve({ available: n > 0, commits: n });
-      });
-    });
+    if (!nodeRequire || !root) return Promise.resolve({ available: false });
+    return git(['fetch', '--quiet'], 30000).then(function () { return git(['rev-list', '--count', 'HEAD..@{u}']); })
+      .then(function (out) { var n = parseInt(out.trim(), 10) || 0; return { available: n > 0, commits: n }; })
+      .catch(function (e) { return { available: false, error: e.message }; });
   }
 
   window.OneSecBoot = {
