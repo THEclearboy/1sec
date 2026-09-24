@@ -111,6 +111,7 @@
       rep.innerHTML = '<div class="ok">✔ ' + r.placed + ' texte(s) posé(s) sur V' + (trackIndex() + 1) + '</div>' +
         (r.missing ? '<div class="err">✖ ' + r.missing + ' texte(s) non importé(s).</div>' : '') +
         (r.popFailed ? '<div class="warn">⚠ Pop-in non appliqué sur ' + r.popFailed + ' texte(s).</div>' : '') +
+        ((r.errors || []).length ? '<pre class="log">' + r.errors.map(H.esc).join('\n') + '</pre>' : '') +
         '<div class="muted">Les images sont dans le chutier « 1SEC Textes ». Pour changer un mot : modifiez la phrase ici et re-placez (les anciens textes sont retirés).</div>';
       render();
       return r;

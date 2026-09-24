@@ -825,20 +825,34 @@ function OneSec_placeTexts(s) {
     var bin = OneSec_findBin(ONESEC_TEXT_BIN);
     var paths = [];
     for (var i = 0; i < a.items.length; i++) paths.push(a.items[i].file);
-    app.project.importFiles(paths, true, bin, false);
-    // retrouve les éléments importés par nom de fichier
+    var importOk = false, importErr = '';
+    try { importOk = app.project.importFiles(paths, true, bin, false); } catch (eI) { importErr = String(eI); }
+    if (!importOk) { try { importOk = app.project.importFiles(paths, true, app.project.rootItem, false); } catch (eI2) { importErr += ' | ' + eI2; } }
+    // Retrouve les éléments importés (le chutier cible est parfois ignoré) et les range dans le chutier
     var byName = {};
-    for (var k = 0; k < bin.children.numItems; k++) byName[bin.children[k].name] = bin.children[k];
-    var report = { placed: 0, missing: 0, popFailed: 0 };
+    (function walk(item) {
+      for (var k = 0; k < item.children.numItems; k++) {
+        var c = item.children[k];
+        if (c.type === ProjectItemType.BIN) { walk(c); continue; }
+        var nm = c.name;
+        if (/^1sec_text_/i.test(nm)) {
+          byName[nm] = c; byName[nm.replace(/\.png$/i, '')] = c;
+          try { if (c.treePath.indexOf(ONESEC_TEXT_BIN) < 0) c.moveBin(bin); } catch (eM) {}
+        }
+      }
+    })(app.project.rootItem);
+    var report = { placed: 0, missing: 0, popFailed: 0, errors: [], imported: 0 };
+    for (var key in byName) if (byName.hasOwnProperty(key) && /\.png$/i.test(key)) report.imported++;
+    if (!report.imported) report.errors.push('Aucun fichier importé (' + (importErr || 'importFiles → ' + importOk) + '). Dossier : ' + paths[0]);
     var mode = a.keyTimeMode || ONESEC_KEY_TIME_MODE;
     for (i = 0; i < a.items.length; i++) {
-      var it = a.items[i], nm = File(it.file).name, pi = byName[nm] || byName[decodeURI(nm)];
-      if (!pi) { report.missing++; continue; }
+      var it = a.items[i], nm = File(it.file).name, pi = byName[nm] || byName[decodeURI(nm)] || byName[nm.replace(/\.png$/i, '')];
+      if (!pi) { report.missing++; if (report.errors.length < 3) report.errors.push('Introuvable dans le projet : ' + nm); continue; }
       var dur = Math.max(1 / fps, it.end - it.start);
       try {
         pi.clearInOutPoints();
         var still = OneSec_secs(pi.getOutPoint());
-        if (dur > still - 1 / fps) dur = still - 1 / fps; // durée max d'une image fixe (préférences Premiere)
+        if (still > 0 && dur > still - 1 / fps) dur = still - 1 / fps; // durée max d'une image fixe (préférences Premiere)
         pi.setInPoint(0, 4);
         pi.setOutPoint(dur, 4);
         track.overwriteClip(pi, it.start);
@@ -852,7 +866,7 @@ function OneSec_placeTexts(s) {
             catch (ePop) { report.popFailed++; }
           }
         }
-      } catch (e) { report.missing++; }
+      } catch (e) { report.missing++; if (report.errors.length < 3) report.errors.push(nm + ' : ' + e); }
     }
     return OneSec_ok(report);
   } catch (e) { return OneSec_err(e); }
