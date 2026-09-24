@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1SEC Montage</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo">1SEC</span><span class="sub">montage sport en rythme</span></div>
+    <div class="top-actions">
+      <span id="status" class="status" title="Connexion à Premiere">…</span>
+      <button id="btn-reload" class="icon" title="Recharger le plugin (sans redémarrer Premiere)">⟳</button>
+      <button id="btn-menu" class="icon" title="Réglages du plugin">⋯</button>
+    </div>
+    <div id="menu" class="menu hidden">
+      <label class="check"><input type="checkbox" id="opt-autoreload"> Rechargement auto quand un fichier change</label>
+      <button id="btn-update">⬇ Mettre à jour (git pull)</button>
+      <button id="btn-reset" class="ghost">Réinitialiser le projet 1SEC</button>
+      <pre id="update-log" class="log hidden"></pre>
+    </div>
+  </header>
+
+  <nav class="steps" id="steps">
+    <button data-step="1"><b>1</b> Musique</button>
+    <button data-step="2"><b>2</b> Rushes</button>
+    <button data-step="3"><b>3</b> Rythme</button>
+    <button data-step="4"><b>4</b> Montage</button>
+  </nav>
+
+  <section class="viz" id="viz">
+    <canvas id="timeline"></canvas>
+    <div class="viz-legend" id="viz-legend"></div>
+    <div class="tooltip hidden" id="tooltip"></div>
+  </section>
+
+  <main>
+    <!-- ÉTAPE 1 -->
+    <section class="panel" data-panel="1">
+      <p class="help">Placez votre musique dans la timeline, <b>sélectionnez le clip audio</b>, puis lancez l'analyse. Tempo, mesures, sections et moments forts sont détectés automatiquement.</p>
+      <div class="row">
+        <button id="btn-analyze" class="primary">♫ Analyser la musique</button>
+        <label id="demo-file" class="file hidden">Fichier audio (démo)<input type="file" id="demo-audio" accept="audio/*"></label>
+      </div>
+      <div id="music-result" class="hidden">
+        <div class="card">
+          <div class="kv"><span>Musique</span><b id="m-name">–</b></div>
+          <div class="kv"><span>Tempo</span><b id="m-bpm">–</b>
+            <span class="btn-group"><button id="btn-bpm-half" class="small">÷2</button><button id="btn-bpm-double" class="small">×2</button></span></div>
+          <div class="kv"><span>1<sup>er</sup> temps de mesure</span><b id="m-phase">–</b>
+            <button id="btn-phase" class="small" title="Décale le premier temps d'un temps">Décaler ▸</button></div>
+          <div class="kv"><span>Découpage</span>
+            <span class="slider">moins <input type="range" id="sensitivity" min="0" max="1" step="0.05" value="0.6"> plus de sections</span></div>
+        </div>
+        <h3>Marqueurs sur la séquence</h3>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="mk-sections" checked> Sections (avec durée)</label>
+          <label class="check"><input type="checkbox" id="mk-hits" checked> Moments forts de la musique</label>
+          <label class="check"><input type="checkbox" id="mk-bars"> Chaque mesure</label>
+          <label class="check"><input type="checkbox" id="mk-beats"> Chaque temps (beaucoup !)</label>
+        </div>
+        <div class="row">
+          <button id="btn-markers" class="primary">Poser les marqueurs</button>
+          <button id="btn-clear-markers" class="ghost">Retirer les marqueurs 1SEC</button>
+        </div>
+        <div class="row end"><button class="next" data-goto="2">Continuer → Rushes</button></div>
+      </div>
+    </section>
+
+    <!-- ÉTAPE 2 -->
+    <section class="panel" data-panel="2">
+      <div class="help">
+        <b>Dérushage</b> : dans le moniteur source, posez un marqueur (<kbd>M</kbd>) <b>à la fin de chaque moment fort</b>. Le plan se terminera sur ce marqueur, calé sur la musique.
+        <ul>
+          <li>Marqueur <b>avec durée</b> = moment précis (début → fin).</li>
+          <li>Nommez-le <b>top</b> (ou marqueur <span class="red">rouge</span>) pour vos meilleures actions : elles iront sur les drops.</li>
+          <li>Nommez-le <b>skip</b> pour l'ignorer.</li>
+        </ul>
+      </div>
+      <div class="row">
+        <label class="radio"><input type="radio" name="rush-src" value="selection" checked> Sélection du panneau Projet</label>
+        <label class="radio"><input type="radio" name="rush-src" value="bin"> Chutier
+          <select id="rush-bin"></select></label>
+        <button id="btn-bins" class="icon small" title="Rafraîchir les chutiers">↻</button>
+      </div>
+      <div class="kv"><span>Durée max avant le marqueur</span>
+        <span class="slider"><input type="range" id="moment-len" min="1" max="8" step="0.5" value="3"> <b id="moment-len-v">3 s</b></span></div>
+      <div class="row"><button id="btn-rushes" class="primary">Charger les moments</button></div>
+      <div id="rush-summary" class="summary hidden"></div>
+      <div id="rush-list" class="list"></div>
+      <div class="row end"><button class="next" data-goto="3">Continuer → Rythme</button></div>
+    </section>
+
+    <!-- ÉTAPE 3 -->
+    <section class="panel" data-panel="3">
+      <div class="card">
+        <div class="kv"><span>Style</span>
+          <span class="slider">régulier <input type="range" id="variation" min="0" max="1" step="0.05" value="0.5"> vivant</span>
+          <button id="btn-seed" class="small" title="Nouvelle variante (les plans verrouillés restent)">🎲 Variante</button></div>
+        <div class="kv"><span>Sur les drops</span>
+          <select id="drop-impact">
+            <option value="ralenti">Plan héros au ralenti, puis coupes rapides</option>
+            <option value="top">Meilleur moment plein vitesse</option>
+            <option value="aucun">Rien de spécial</option>
+          </select></div>
+        <div class="kv"><span>Ordre des rushes</span>
+          <select id="order">
+            <option value="mix">Mélangé (le meilleur au bon moment)</option>
+            <option value="chrono">Chronologique</option>
+          </select></div>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="accelerate" checked> Accélérer les coupes dans les montées</label>
+          <label class="check"><input type="checkbox" id="cut-hits" checked> Couper sur les accents de la musique</label>
+        </div>
+        <div class="kv"><span>Garder après le marqueur</span>
+          <span class="slider"><input type="range" id="tail" min="0" max="12" step="1" value="2"> <b id="tail-v">2 images</b></span></div>
+      </div>
+
+      <h3>Sections <small>— réglez le rythme et la vitesse de chaque passage</small></h3>
+      <div id="sections" class="list"></div>
+
+      <details id="shots-box">
+        <summary>Détail des plans <span id="shots-count"></span></summary>
+        <p class="help small">Changez le rush ou la vitesse d'un plan, et 🔒 verrouillez ceux qui vous plaisent : ils ne bougeront plus quand vous changez les réglages.</p>
+        <div id="shots" class="list"></div>
+      </details>
+      <div class="row end"><button class="next" data-goto="4">Continuer → Montage</button></div>
+    </section>
+
+    <!-- ÉTAPE 4 -->
+    <section class="panel" data-panel="4">
+      <div id="plan-summary" class="summary"></div>
+      <div class="card">
+        <div class="kv"><span>Piste vidéo</span><select id="video-track"></select></div>
+        <label class="check"><input type="checkbox" id="clear-track" checked> Vider cette piste sur la durée de la musique avant de monter</label>
+        <label class="check"><input type="checkbox" id="mute-rush" checked> Retirer le son des rushes (garder la musique seule)</label>
+      </div>
+      <div class="row">
+        <button id="btn-build" class="primary big">▶ Construire le montage</button>
+        <button id="btn-clear-edit" class="ghost">Effacer le montage 1SEC</button>
+      </div>
+      <div id="build-report" class="summary hidden"></div>
+      <p class="help small">Astuce : pour des ralentis fluides, sélectionnez les plans ralentis et choisissez <i>Interpolation temporelle → Flux optique</i>. Modifiez ensuite les réglages à l'étape 3 et reconstruisez : la piste est remplacée.</p>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+  <div id="busy" class="busy hidden"><div class="spinner"></div><span id="busy-text">Analyse…</span></div>
+
+  <script src="js/boot.js"></script>
+</body>
+</html>

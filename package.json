@@ -1,0 +1,10 @@
+{
+  "name": "1sec-premiere-sport-edit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plugin Premiere Pro : montage de vidéos de sport calé sur la musique",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "demo": "npx http-server -p 8080 -c-1 ."
+  }
+}
