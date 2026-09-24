@@ -601,14 +601,31 @@
       var ok = Boot.setAutoReload(e.target.checked);
       if (e.target.checked && !ok) toast('Surveillance des fichiers indisponible ici.', 'err');
     });
-    $('btn-update').addEventListener('click', function () {
-      var log = $('update-log');
+    function doUpdate() {
+      var log = $('update-log'), top = $('btn-update-top');
       log.classList.remove('hidden'); log.textContent = 'git pull…';
+      top.classList.add('busy'); top.textContent = '⬇ Mise à jour…';
+      toast('Mise à jour en cours…');
       Boot.update().then(function (r) {
+        top.classList.remove('busy');
         log.textContent = r.output || (r.ok ? 'OK' : 'Échec');
-        if (r.ok && r.changed) { log.textContent += '\nRechargement…'; setTimeout(Boot.reload, 800); }
+        if (!r.ok) { top.textContent = '⬇ Mettre à jour'; $('menu').classList.remove('hidden'); toast('Mise à jour impossible : voir le détail dans le menu ⋯', 'err'); return; }
+        if (r.changed) { toast('Mise à jour installée, rechargement…', 'ok'); setTimeout(Boot.reload, 800); }
+        else { top.textContent = '✔ À jour'; top.classList.remove('available'); toast('Le plugin est déjà à jour.', 'ok'); }
       });
-    });
+    }
+    $('btn-update').addEventListener('click', doUpdate);
+    $('btn-update-top').addEventListener('click', doUpdate);
+    function checkUpdate() {
+      if (!Boot.isCEP) return;
+      Boot.checkUpdate().then(function (r) {
+        var top = $('btn-update-top');
+        if (r.available) { top.classList.add('available'); top.textContent = '⬇ Mise à jour disponible'; top.title = r.commits + ' nouvelle(s) version(s) : cliquez pour installer sans redémarrer Premiere'; }
+        else if (!r.error) { top.textContent = '✔ À jour'; top.classList.remove('available'); }
+      });
+    }
+    checkUpdate();
+    setInterval(checkUpdate, 5 * 60 * 1000);
     $('btn-reset').addEventListener('click', function () {
       if (!confirm('Oublier l\'analyse, les rushes et tous les réglages ?')) return;
       S = defaults(); planResult = null; saveState(); goto(1);

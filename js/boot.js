@@ -100,7 +100,21 @@
     });
   }
 
+  /** Vérifie s'il existe une mise à jour (git fetch, sans rien modifier). */
+  function checkUpdate() {
+    return new Promise(function (resolve) {
+      if (!nodeRequire || !root) return resolve({ available: false });
+      var cp = nodeRequire('child_process');
+      cp.exec('git fetch --quiet && git rev-list --count HEAD..@{u}', { cwd: root, timeout: 30000 }, function (err, stdout) {
+        if (err) return resolve({ available: false, error: String(err) });
+        var n = parseInt(String(stdout).trim(), 10) || 0;
+        resolve({ available: n > 0, commits: n });
+      });
+    });
+  }
+
   window.OneSecBoot = {
+    checkUpdate: checkUpdate,
     isCEP: isCEP,
     root: root,
     nodeRequire: nodeRequire,

@@ -163,3 +163,8 @@ details summary { cursor: pointer; margin: 14px 0 6px; font-weight: 600; color: 
 
 .frshot canvas { width: 100%; display: block; background: #000; }
 .frshot .tweak label span { width: 70px; }
+
+button.update { padding: 3px 8px; font-size: 11px; color: var(--muted); }
+button.update.available { background: var(--ok); border-color: var(--ok); color: #fff; font-weight: 600; animation: pulse 1.6s ease-in-out infinite; }
+button.update.busy { opacity: .6; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 4px rgba(63,185,107,.25); } }
