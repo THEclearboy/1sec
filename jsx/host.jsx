@@ -89,6 +89,14 @@ function OneSec_trackItemInfo(it, kind, trackIndex) {
   return info;
 }
 
+/** Compatibilité : clearInOutPoints n'existe pas sur toutes les versions. */
+function OneSec_clearInOut(pi) {
+  try { if (typeof pi.clearInOutPoints === 'function') { pi.clearInOutPoints(); return true; } } catch (e) {}
+  try { pi.setInPoint(0, 4); } catch (e2) {}
+  try { pi.setOutPoint(360000, 4); } catch (e3) {}
+  return false;
+}
+
 var OneSec_itemCache = null;
 function OneSec_findProjectItem(nodeId) {
   if (!OneSec_itemCache) {
@@ -246,7 +254,7 @@ function OneSec_clipInfo(pi) {
   // Durée du média : on lit le point de sortie après avoir retiré temporairement les points in/out.
   try {
     var oldIn = OneSec_secs(pi.getInPoint()), oldOut = OneSec_secs(pi.getOutPoint());
-    pi.clearInOutPoints();
+    OneSec_clearInOut(pi);
     info.duration = OneSec_secs(pi.getOutPoint());
     info.inPoint = 0;
     info.outPoint = info.duration;
@@ -408,7 +416,7 @@ function OneSec_buildEdit(s) {
     for (var id in touched) {
       if (!touched.hasOwnProperty(id)) continue;
       var tc = touched[id];
-      try { tc.item.clearInOutPoints(); } catch (eC) {}
+      try { OneSec_clearInOut(tc.item); } catch (eC) {}
       try {
         var full = OneSec_secs(tc.item.getOutPoint());
         if (tc.inP > 0.0001 || Math.abs(tc.outP - full) > 0.0001) { tc.item.setInPoint(tc.inP, 4); tc.item.setOutPoint(tc.outP, 4); }
@@ -850,11 +858,12 @@ function OneSec_placeTexts(s) {
       if (!pi) { report.missing++; if (report.errors.length < 3) report.errors.push('Introuvable dans le projet : ' + nm); continue; }
       var dur = Math.max(1 / fps, it.end - it.start);
       try {
-        pi.clearInOutPoints();
-        var still = OneSec_secs(pi.getOutPoint());
+        OneSec_clearInOut(pi);
+        var still = 0;
+        try { still = OneSec_secs(pi.getOutPoint()); } catch (eS) {}
         if (still > 0 && dur > still - 1 / fps) dur = still - 1 / fps; // durée max d'une image fixe (préférences Premiere)
         pi.setInPoint(0, 4);
-        pi.setOutPoint(dur, 4);
+        try { pi.setOutPoint(dur, 4); } catch (eO) { pi.setOutPoint(Math.min(dur, 4.9), 4); }
         track.overwriteClip(pi, it.start);
         report.placed++;
         if (it.pop) {
