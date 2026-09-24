@@ -793,3 +793,122 @@ function OneSec_resetFraming(s) {
     return OneSec_ok({ reset: n });
   } catch (e) { return OneSec_err(e); }
 }
+
+// ================================================================== EFFETS
+
+// Temps des images clés : 'source' = temps média (point d'entrée + décalage),
+// 'sequence' = temps de la séquence. Changez si les effets tombent au mauvais endroit.
+var ONESEC_KEY_TIME_MODE = 'source';
+
+function OneSec_keyTime(clip, tLocal, mode) {
+  return (mode === 'sequence' ? OneSec_secs(clip.start) : OneSec_secs(clip.inPoint)) + tLocal;
+}
+
+function OneSec_setKeys(prop, clip, keys, valueOf, mode) {
+  prop.setTimeVarying(true);
+  for (var i = 0; i < keys.length; i++) {
+    var t = OneSec_keyTime(clip, keys[i].t, mode);
+    try { prop.addKey(t); } catch (e) {}
+    prop.setValueAtKey(t, valueOf(keys[i]), true);
+    try { prop.setInterpolationTypeAtKey(t, 5, true); } catch (e2) {} // 5 = Bézier (lisse) si supporté
+  }
+}
+
+var ONESEC_TRANSITIONS = {
+  dissolve: ['Cross Dissolve', 'Fondu enchaîné', 'Fondu enchaîne', 'Weiche Blende'],
+  dipBlack: ['Dip to Black', 'Fondu au noir', 'Schwarzblende'],
+  dipWhite: ['Dip to White', 'Fondu au blanc', 'Weißblende']
+};
+var OneSec_transitionCache = {};
+function OneSec_transition(name) {
+  if (OneSec_transitionCache[name] !== undefined) return OneSec_transitionCache[name];
+  var fx = null, names = ONESEC_TRANSITIONS[name] || [name];
+  for (var i = 0; i < names.length && !fx; i++) { try { fx = qe.project.getVideoTransitionByName(names[i]); } catch (e) {} }
+  OneSec_transitionCache[name] = fx || null;
+  return fx;
+}
+
+function OneSec_addTransition(qi, fx, atStart, duration, fps) {
+  var tc = OneSec_timecode(duration, fps);
+  var attempts = [
+    function () { return qi.addTransition(fx, atStart, tc, '00:00:00:00', 0.5, false, true); },
+    function () { return qi.addTransition(fx, atStart, tc); },
+    function () { return qi.addTransition(fx, atStart); }
+  ];
+  for (var i = 0; i < attempts.length; i++) { try { attempts[i](); return true; } catch (e) {} }
+  return false;
+}
+
+/**
+ * Applique les effets. args: { videoTrack, ops: [...], keyTimeMode? }
+ */
+function OneSec_applyEffects(s) {
+  try {
+    var a = OneSec_args(s), seq = OneSec_seq(), track = seq.videoTracks[a.videoTrack], fps = OneSec_fps(seq);
+    var mode = a.keyTimeMode || ONESEC_KEY_TIME_MODE;
+    app.enableQE();
+    var qeTrack = qe.project.getActiveSequence().getVideoTrackAt(a.videoTrack);
+    var cx = seq.frameSizeHorizontal / 2, cy = seq.frameSizeVertical / 2;
+    var report = { motion: 0, transitions: 0, pulse: 0, missing: 0, failed: {}, transitionMissing: [] };
+    OneSec_transitionCache = {};
+    function fail(k) { report.failed[k] = (report.failed[k] || 0) + 1; }
+    for (var i = 0; i < a.ops.length; i++) {
+      var op = a.ops[i], found = OneSec_findTrackItemAt(track, op.start, null);
+      if (!found) { report.missing++; continue; }
+      var clip = found.item;
+      try {
+        if (op.type === 'transition') {
+          var fx = OneSec_transition(op.name);
+          if (!fx) { if (report.transitionMissing.indexOf(op.name) < 0) report.transitionMissing.push(op.name); fail(op.name); continue; }
+          var qi = OneSec_qeItem(qeTrack, found.index);
+          if (qi && OneSec_addTransition(qi, fx, op.position !== 'end', op.duration, fps)) report.transitions++; else fail(op.name);
+        } else if (op.type === 'punch' || op.type === 'kenburns') {
+          var motion = OneSec_findMotion(clip), ps = OneSec_motionProp(motion, 'scale', 1);
+          var base = 100;
+          try { base = ps.getValue(); } catch (eB) {}
+          OneSec_setKeys(ps, clip, op.keys, function (k) { return base * k.scale; }, mode);
+          report.motion++;
+        } else if (op.type === 'shake') {
+          var motion2 = OneSec_findMotion(clip), pp = OneSec_motionProp(motion2, 'position', 0);
+          var basePos = [cx, cy];
+          try { basePos = pp.getValue(); } catch (eP) {}
+          OneSec_setKeys(pp, clip, op.keys, function (k) { return [basePos[0] + k.dx, basePos[1] + k.dy]; }, mode);
+          report.motion++;
+        } else if (op.type === 'pulse') {
+          if (!OneSec_ensureLumetri(seq, a.videoTrack, clip)) { fail('pulse'); continue; }
+          var comp = OneSec_findLumetri(clip), idx = OneSec_lumetriIndex(comp, 'exposure', 0);
+          if (idx < 0) { fail('pulse'); continue; }
+          var pe = comp.properties[idx], baseE = 0;
+          try { baseE = pe.getValue(); } catch (eE) {}
+          OneSec_setKeys(pe, clip, op.keys, function (k) { return baseE + k.exposure; }, mode);
+          report.pulse++;
+        }
+      } catch (e) { fail(op.type + ':' + e); }
+    }
+    return OneSec_ok(report);
+  } catch (e) { return OneSec_err(e); }
+}
+
+/** Retire les images clés Trajectoire (échelle / position) et l'animation d'exposition. args: { videoTrack, range? } */
+function OneSec_clearEffects(s) {
+  try {
+    var a = OneSec_args(s), seq = OneSec_seq(), track = seq.videoTracks[a.videoTrack], n = 0;
+    var cx = seq.frameSizeHorizontal / 2, cy = seq.frameSizeVertical / 2;
+    for (var i = 0; i < track.clips.numItems; i++) {
+      var c = track.clips[i], st = OneSec_secs(c.start);
+      if (a.range && (OneSec_secs(c.end) <= a.range.start || st >= a.range.end)) continue;
+      var motion = OneSec_findMotion(c);
+      if (motion) {
+        try {
+          var ps = OneSec_motionProp(motion, 'scale', 1), pp = OneSec_motionProp(motion, 'position', 0);
+          if (ps && ps.isTimeVarying()) { var v = ps.getValue(); ps.setTimeVarying(false); ps.setValue(a.keepScale === false ? 100 : v, true); }
+          if (pp && pp.isTimeVarying()) { pp.setTimeVarying(false); pp.setValue([cx, cy], true); }
+        } catch (e) {}
+      }
+      var comp = OneSec_findLumetri(c);
+      if (comp) { try { var idx = OneSec_lumetriIndex(comp, 'exposure', 0); var pe = comp.properties[idx]; if (pe.isTimeVarying()) { var ev = pe.getValue(); pe.setTimeVarying(false); pe.setValue(ev, true); } } catch (e2) {} }
+      n++;
+    }
+    return OneSec_ok({ cleared: n, note: 'Les transitions se retirent dans Premiere (sélection + Suppr).' });
+  } catch (e) { return OneSec_err(e); }
+}

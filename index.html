@@ -30,6 +30,7 @@
     <button data-step="3"><b>3</b> Rythme</button>
     <button data-step="4"><b>4</b> Montage</button>
     <button data-step="5"><b>5</b> Colo</button>
+    <button data-step="6"><b>6</b> Effets</button>
   </nav>
 
   <section class="viz" id="viz">
@@ -206,6 +207,40 @@
         <button id="btn-grade-diag" class="ghost small" title="Liste les paramètres Lumetri vus par le script (pour adapter les noms)">Diagnostic Lumetri</button>
       </div>
       <div id="grade-report" class="summary hidden"></div>
+    </section>
+
+    <!-- ÉTAPE 6 -->
+    <section class="panel" data-panel="6">
+      <p class="help">Les effets d'un monteur pro : <b>rares et justifiés par la musique</b>. Chaque effet est calé sur les accents, les sections et le tempo détectés à l'étape 1, et posé sur les plans du montage construit à l'étape 4. Tout reste modifiable dans Premiere (images clés Trajectoire, transitions).</p>
+      <div class="card">
+        <div class="kv"><span>Densité</span><span class="slider">discret <input type="range" id="fx-density" min="0.2" max="1.2" step="0.05" value="0.6"> chargé</span></div>
+        <div class="fx-list">
+          <label class="check fx"><input type="checkbox" id="fx-punch" checked> <b>Punch-in</b> <small>zoom sec sur les accents forts, retour souple</small>
+            <span class="slider">léger <input type="range" id="fx-punch-amt" min="0.03" max="0.15" step="0.01" value="0.08"> fort</span></label>
+          <label class="check fx"><input type="checkbox" id="fx-shake" checked> <b>Shake d'impact</b> <small>secousse de 3 images sur les plus gros accents</small>
+            <span class="slider">léger <input type="range" id="fx-shake-amt" min="4" max="30" step="1" value="12"> fort</span></label>
+          <label class="check fx"><input type="checkbox" id="fx-kenburns" checked> <b>Zoom lent</b> <small>sur les plans longs, pour qu'ils vivent</small>
+            <span class="slider">léger <input type="range" id="fx-kb-amt" min="0.02" max="0.12" step="0.01" value="0.05"> fort</span></label>
+          <label class="check fx"><input type="checkbox" id="fx-flash" checked> <b>Flash blanc</b> <small>à l'arrivée du drop</small>
+            <span class="slider">court <input type="range" id="fx-flash-len" min="2" max="12" step="1" value="6"> long</span></label>
+          <label class="check fx"><input type="checkbox" id="fx-dissolve" checked> <b>Fondus enchaînés</b> <small>entre plans calmes (intro, outro, pauses)</small>
+            <span class="slider">court <input type="range" id="fx-dissolve-len" min="6" max="30" step="1" value="12"> long</span></label>
+          <label class="check fx"><input type="checkbox" id="fx-fade" checked> <b>Fondu au noir</b> <small>au tout début et à la toute fin</small></label>
+          <label class="check fx"><input type="checkbox" id="fx-pulse"> <b>Pulsation lumière</b> <small>l'exposition bat sur les premiers temps du drop (via Lumetri)</small>
+            <span class="slider">léger <input type="range" id="fx-pulse-amt" min="0.15" max="0.7" step="0.05" value="0.35"> fort</span></label>
+        </div>
+      </div>
+      <div id="fx-summary" class="summary"></div>
+      <div class="row">
+        <button id="btn-fx-apply" class="primary big">✨ Appliquer les effets</button>
+        <button id="btn-fx-clear" class="ghost">Retirer les animations 1SEC</button>
+      </div>
+      <details><summary>Réglages avancés</summary>
+        <div class="kv"><span>Temps des images clés</span>
+          <select id="fx-keymode"><option value="source">Temps média (défaut)</option><option value="sequence">Temps séquence</option></select>
+          <small class="muted">Si les effets tombent au mauvais endroit dans Premiere, changez ce réglage et ré-appliquez.</small></div>
+      </details>
+      <div id="fx-report" class="summary hidden"></div>
     </section>
   </main>
 

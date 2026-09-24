@@ -105,6 +105,18 @@ noms des paramètres Lumetri dépendent de la langue de Premiere : si le rapport
 signale des paramètres non trouvés, *Diagnostic Lumetri* affiche la liste
 réelle pour adapter `ONESEC_LUMETRI_NAMES` dans `jsx/host.jsx`.
 
+### Étape 6 — Effets
+Des effets **rares et justifiés par la musique**, posés sur les plans du montage :
+punch-in et shake d'impact sur les accents (impact cut quand l'accent tombe sur
+la coupe), zoom lent sur les plans longs, flash blanc à l'arrivée du drop,
+fondus enchaînés entre plans calmes, fondu au noir au début / à la fin,
+pulsation d'exposition sur les premiers temps du drop (option). Un curseur de
+densité et un dosage par effet. Tout est fait en images clés Trajectoire /
+Lumetri et transitions natives : modifiable dans Premiere.
+
+Si les images clés tombent au mauvais endroit dans votre version de Premiere,
+changez *Temps des images clés* (réglages avancés) et ré-appliquez.
+
 ## Comment le rythme est décidé
 
 - Les coupes tombent sur la grille des temps (demi-temps possibles), les plans
@@ -130,5 +142,5 @@ Structure :
 - `js/audio-analysis.js` — tempo, temps, mesures, énergie, sections, moments forts (pur JS).
 - `js/edit-planner.js` — découpage rythmique, attribution des rushes, marqueurs.
 - `js/color-grade.js` — analyse d'image, looks, calcul de la colo par plan, aperçu.
-- `js/app.js` — interface par étapes ; `js/app-frames.js` — export/analyse des images par rush ; `js/app-color.js` — étape colo ; `js/app-framing.js` — format / cadrage ; `js/bridge.js` — pont Premiere / mode démo ; `js/boot.js` — rechargement à chaud.
+- `js/app.js` — interface par étapes ; `js/app-frames.js` — export/analyse des images par rush ; `js/app-color.js` — étape colo ; `js/app-framing.js` — format / cadrage ; `js/effects-planner.js` + `js/app-effects.js` — effets ; `js/bridge.js` — pont Premiere / mode démo ; `js/boot.js` — rechargement à chaud.
 - `jsx/host.jsx` — côté Premiere (lecture des clips/marqueurs, pose des marqueurs, montage, vitesses).

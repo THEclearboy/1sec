@@ -30,7 +30,8 @@
       lastBuild: null,
       selectedSection: null,
       color: null,
-      framing: null
+      framing: null,
+      effects: null
     };
   }
 
@@ -149,6 +150,7 @@
     if (n === 3) return !!(planResult && planResult.shots.length && S.clips.length);
     if (n === 4) return !!S.lastBuild;
     if (n === 5) return !!(S.color && S.color.applied);
+    if (n === 6) return !!(S.effects && S.effects.applied);
     return false;
   }
 
@@ -581,6 +583,7 @@
     drawTimeline();
     try { if (root.OneSecColorUI) root.OneSecColorUI.render(); } catch (e) { console.error('[1SEC] colo', e); }
     try { if (root.OneSecFramingUI) root.OneSecFramingUI.render(); } catch (e2) { console.error('[1SEC] cadrage', e2); }
+    try { if (root.OneSecEffectsUI) root.OneSecEffectsUI.render(); } catch (e3) { console.error('[1SEC] effets', e3); }
     document.querySelectorAll('#steps button').forEach(function (b) {
       var n = +b.getAttribute('data-step');
       b.classList.toggle('done', isDone(n) && n !== S.step);
@@ -719,8 +722,8 @@
   function start() {
     loadState();
     bind();
-    var helpers = { state: function () { return S; }, save: saveSoon, toast: toast, busy: busy, run: run, el: el, $: $, fmt: fmt, esc: esc, musicRange: musicRange, timelineOffset: timelineOffset };
-    [root.OneSecFrames, root.OneSecColorUI, root.OneSecFramingUI].forEach(function (m) {
+    var helpers = { state: function () { return S; }, plan: function () { return planResult; }, save: saveSoon, toast: toast, busy: busy, run: run, el: el, $: $, fmt: fmt, esc: esc, musicRange: musicRange, timelineOffset: timelineOffset };
+    [root.OneSecFrames, root.OneSecColorUI, root.OneSecFramingUI, root.OneSecEffectsUI].forEach(function (m) {
       if (!m) return;
       try { m.init(helpers); } catch (e) { console.error('[1SEC] module', e); toast('Un module n\'a pas démarré : ' + e.message, 'err'); }
     });

@@ -168,3 +168,12 @@ button.update { padding: 3px 8px; font-size: 11px; color: var(--muted); }
 button.update.available { background: var(--ok); border-color: var(--ok); color: #fff; font-weight: 600; animation: pulse 1.6s ease-in-out infinite; }
 button.update.busy { opacity: .6; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 4px rgba(63,185,107,.25); } }
+
+.fx-list { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }
+.fx { display: grid; grid-template-columns: auto 1fr; gap: 2px 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.fx:last-child { border-bottom: 0; }
+.fx b { color: #fff; }
+.fx small { grid-column: 2; color: var(--muted); }
+.fx .slider { grid-column: 2; }
+.fx-tl { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.fx-tag { font-size: 10px; padding: 1px 6px; border-radius: 10px; background: var(--bg3); border: 1px solid var(--line); }
