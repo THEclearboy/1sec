@@ -135,6 +135,15 @@
       window.OneSecApp.start();
     })
     .catch(function (e) {
-      document.body.innerHTML = '<pre style="color:#f88;padding:12px">[1SEC] ' + (e && e.message || e) + '</pre>';
+      console.error('[1SEC]', e);
+      document.body.innerHTML = '<div style="padding:14px;font:12px sans-serif;color:#ddd">' +
+        '<pre style="color:#f88;white-space:pre-wrap">[1SEC] ' + (e && e.message || e) + '</pre>' +
+        '<p>Le panneau n\'a pas pu démarrer. Essayez de le recharger ; si ça persiste, réinitialisez l\'état sauvegardé (analyse, réglages).</p>' +
+        '<button id="b-reload" style="padding:6px 12px;margin-right:8px">⟳ Recharger</button>' +
+        '<button id="b-reset" style="padding:6px 12px">Réinitialiser et recharger</button>' +
+        '<button id="b-update" style="padding:6px 12px;margin-left:8px">⬇ Mettre à jour</button></div>';
+      document.getElementById('b-reload').onclick = function () { window.location.reload(); };
+      document.getElementById('b-reset').onclick = function () { try { localStorage.clear(); } catch (x) {} window.location.reload(); };
+      document.getElementById('b-update').onclick = function () { update().then(function () { window.location.reload(); }); };
     });
 })();

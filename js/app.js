@@ -579,8 +579,8 @@
     renderShots();
     renderBuild();
     drawTimeline();
-    if (root.OneSecColorUI) root.OneSecColorUI.render();
-    if (root.OneSecFramingUI) root.OneSecFramingUI.render();
+    try { if (root.OneSecColorUI) root.OneSecColorUI.render(); } catch (e) { console.error('[1SEC] colo', e); }
+    try { if (root.OneSecFramingUI) root.OneSecFramingUI.render(); } catch (e2) { console.error('[1SEC] cadrage', e2); }
     document.querySelectorAll('#steps button').forEach(function (b) {
       var n = +b.getAttribute('data-step');
       b.classList.toggle('done', isDone(n) && n !== S.step);
@@ -720,9 +720,10 @@
     loadState();
     bind();
     var helpers = { state: function () { return S; }, save: saveSoon, toast: toast, busy: busy, run: run, el: el, $: $, fmt: fmt, esc: esc, musicRange: musicRange, timelineOffset: timelineOffset };
-    if (root.OneSecFrames) root.OneSecFrames.init(helpers);
-    if (root.OneSecColorUI) root.OneSecColorUI.init(helpers);
-    if (root.OneSecFramingUI) root.OneSecFramingUI.init(helpers);
+    [root.OneSecFrames, root.OneSecColorUI, root.OneSecFramingUI].forEach(function (m) {
+      if (!m) return;
+      try { m.init(helpers); } catch (e) { console.error('[1SEC] module', e); toast('Un module n\'a pas démarré : ' + e.message, 'err'); }
+    });
     checkConnection();
     loadBins();
     replan();

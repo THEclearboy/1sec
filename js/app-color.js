@@ -15,7 +15,12 @@
       intensity: 1, match: 0.8, adjust: { warm: 0, contrast: 0, saturation: 0, exposure: 0, shadowStrength: 0, highlightStrength: 0, vignette: 0 },
       protectSkin: true, groups: [], perRush: {}, selected: null, applied: false, refName: null
     };
-    return s.color;
+    // migration d'un état plus ancien
+    var c = s.color;
+    if (!Array.isArray(c.groups)) c.groups = [];
+    if (!c.perRush) c.perRush = {};
+    if (!c.adjust) c.adjust = { warm: 0, contrast: 0, saturation: 0, exposure: 0, shadowStrength: 0, highlightStrength: 0, vignette: 0 };
+    return c;
   }
 
   function currentLook() {

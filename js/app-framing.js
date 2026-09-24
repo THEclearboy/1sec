@@ -11,6 +11,8 @@
   function FS() {
     var s = S();
     if (!s.framing) s.framing = { mode: 'subject', track: null, rangeOnly: true, groups: [], seq: null, perRush: {}, selected: null };
+    if (!Array.isArray(s.framing.groups)) s.framing.groups = [];
+    if (!s.framing.perRush) s.framing.perRush = {};
     return s.framing;
   }
   function track() { var fs = FS(), s = S(); return Number(fs.track == null ? (s.build.videoTrack || 0) : fs.track); }
