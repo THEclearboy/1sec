@@ -117,6 +117,16 @@ Lumetri et transitions natives : modifiable dans Premiere.
 Si les images clés tombent au mauvais endroit dans votre version de Premiere,
 changez *Temps des images clés* (réglages avancés) et ré-appliquez.
 
+### Étape 7 — Textes
+Textes dynamiques **mot à mot calés sur les temps** : mode *empilé* (les mots
+s'ajoutent ligne par ligne, le dernier mot en grand) ou *mot à mot* (chaque mot
+remplace le précédent). Option **Hook au début** : une accroche sur les
+premières secondes, et le montage y place vos meilleurs moments. Styles
+(Impact, Épuré, Capitales, Contour, Jaune), police libre, taille, position,
+piste. Chaque état du texte est rendu en PNG transparent à la taille de la
+séquence, importé dans le chutier « 1SEC Textes » et posé sur la piste avec un
+pop-in par images clés — déplaçable et modifiable dans Premiere.
+
 ## Comment le rythme est décidé
 
 - Les coupes tombent sur la grille des temps (demi-temps possibles), les plans
@@ -142,5 +152,5 @@ Structure :
 - `js/audio-analysis.js` — tempo, temps, mesures, énergie, sections, moments forts (pur JS).
 - `js/edit-planner.js` — découpage rythmique, attribution des rushes, marqueurs.
 - `js/color-grade.js` — analyse d'image, looks, calcul de la colo par plan, aperçu.
-- `js/app.js` — interface par étapes ; `js/app-frames.js` — export/analyse des images par rush ; `js/app-color.js` — étape colo ; `js/app-framing.js` — format / cadrage ; `js/effects-planner.js` + `js/app-effects.js` — effets ; `js/bridge.js` — pont Premiere / mode démo ; `js/boot.js` — rechargement à chaud.
+- `js/app.js` — interface par étapes ; `js/app-frames.js` — export/analyse des images par rush ; `js/app-color.js` — étape colo ; `js/app-framing.js` — format / cadrage ; `js/effects-planner.js` + `js/app-effects.js` — effets ; `js/text-planner.js` + `js/text-render.js` + `js/app-text.js` — textes ; `js/bridge.js` — pont Premiere / mode démo ; `js/boot.js` — rechargement à chaud.
 - `jsx/host.jsx` — côté Premiere (lecture des clips/marqueurs, pose des marqueurs, montage, vitesses).

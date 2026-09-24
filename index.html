@@ -31,6 +31,7 @@
     <button data-step="4"><b>4</b> Montage</button>
     <button data-step="5"><b>5</b> Colo</button>
     <button data-step="6"><b>6</b> Effets</button>
+    <button data-step="7"><b>7</b> Textes</button>
   </nav>
 
   <section class="viz" id="viz">
@@ -254,6 +255,45 @@
           <small class="muted">Si les effets tombent au mauvais endroit dans Premiere, changez ce réglage et ré-appliquez.</small></div>
       </details>
       <div id="fx-report" class="summary hidden"></div>
+    </section>
+
+    <!-- ÉTAPE 7 -->
+    <section class="panel" data-panel="7">
+      <p class="help">Textes dynamiques <b>mot à mot, calés sur les temps</b> de la musique. Rendus en images transparentes posées sur une piste au-dessus du montage : vous pouvez les déplacer, les raccourcir, changer une ligne dans Premiere.</p>
+      <div class="card">
+        <label class="check"><input type="checkbox" id="tx-hook"> <b>Hook au début</b> <small>— vos meilleurs moments dès la première seconde, avec une accroche</small></label>
+        <div class="kv" id="tx-hook-row"><span>Accroche</span><input type="text" id="tx-hook-text" placeholder="Ex. : Regarde jusqu'à la fin" style="flex:1">
+          <span class="slider"><input type="range" id="tx-hook-sec" min="1" max="6" step="0.5" value="3"> <b id="tx-hook-sec-v">3 s</b></span></div>
+      </div>
+      <div class="card">
+        <div class="kv"><span>Phrases</span><small class="muted">une par ligne — chaque mot arrive sur un temps, le dernier est mis en avant</small></div>
+        <textarea id="tx-phrases" rows="5" placeholder="Tu consommes plus que tu ne crées.&#10;Tu scrolles pendant des heures et tu appelles ça de la recherche."></textarea>
+        <div class="kv"><span>Où</span>
+          <select id="tx-where">
+            <option value="intro">Intro (avant le drop)</option>
+            <option value="all">Sur toute la musique</option>
+            <option value="drop">À partir du drop</option>
+          </select>
+          <select id="tx-mode"><option value="stack">Empilé (les mots s'ajoutent)</option><option value="word">Mot à mot (remplace)</option></select></div>
+        <div class="kv"><span>Rythme</span>
+          <select id="tx-wpb"><option value="auto">Auto</option><option value="0.5">Un mot tous les 2 temps</option><option value="1">Un mot par temps</option><option value="2">Un mot par demi-temps</option></select>
+          <span class="slider">tenue <input type="range" id="tx-hold" min="1" max="6" step="0.5" value="2"> <b id="tx-hold-v">2 temps</b></span></div>
+      </div>
+      <div class="card">
+        <div class="kv"><span>Style</span><select id="tx-style"></select>
+          <input type="text" id="tx-font" placeholder="Police (optionnel) ex. Montserrat" style="width:150px"></div>
+        <div class="kv"><span>Taille</span><span class="slider">− <input type="range" id="tx-size" min="0.05" max="0.14" step="0.005" value="0.085"> +</span>
+          <span>Mot final</span><span class="slider">× <input type="range" id="tx-emph" min="1" max="2.2" step="0.1" value="1.5"></span></div>
+        <div class="kv"><span>Position</span><span class="slider">haut <input type="range" id="tx-y" min="0.2" max="0.85" step="0.01" value="0.5"> bas</span>
+          <span>Piste</span><select id="tx-track"></select></div>
+        <div class="tx-preview"><canvas id="tx-preview"></canvas><span class="muted">aperçu</span></div>
+      </div>
+      <div id="tx-summary" class="summary"></div>
+      <div class="row">
+        <button id="btn-tx-apply" class="primary big">Aa Placer les textes</button>
+        <button id="btn-tx-clear" class="ghost">Retirer les textes 1SEC</button>
+      </div>
+      <div id="tx-report" class="summary hidden"></div>
     </section>
   </main>
 

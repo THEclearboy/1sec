@@ -793,3 +793,86 @@ function OneSec_diagFrames(s) {
     return OneSec_ok(out);
   } catch (e) { return OneSec_err(e); }
 }
+
+// ================================================================== TEXTES
+
+var ONESEC_TEXT_BIN = '1SEC Textes';
+
+function OneSec_findBin(name) {
+  var r = app.project.rootItem;
+  for (var i = 0; i < r.children.numItems; i++) if (r.children[i].type === ProjectItemType.BIN && r.children[i].name === name) return r.children[i];
+  return r.createBin(name);
+}
+
+function OneSec_ensureVideoTracks(seq, count) {
+  if (seq.videoTracks.numTracks >= count) return true;
+  try {
+    app.enableQE();
+    var qeSeq = qe.project.getActiveSequence();
+    qeSeq.addTracks(count - seq.videoTracks.numTracks, seq.videoTracks.numTracks, 0, 0, 0, 0, 0, 0);
+  } catch (e) {}
+  return seq.videoTracks.numTracks >= count;
+}
+
+/**
+ * Importe des PNG et les pose sur une piste. args: { videoTrack, items: [{ file, start, end, pop }], popFrames, keyTimeMode }
+ */
+function OneSec_placeTexts(s) {
+  try {
+    var a = OneSec_args(s), seq = OneSec_seq(), fps = OneSec_fps(seq);
+    if (!OneSec_ensureVideoTracks(seq, a.videoTrack + 1)) throw new Error('Impossible de créer la piste V' + (a.videoTrack + 1) + ' : ajoutez-la dans la timeline.');
+    var track = seq.videoTracks[a.videoTrack];
+    var bin = OneSec_findBin(ONESEC_TEXT_BIN);
+    var paths = [];
+    for (var i = 0; i < a.items.length; i++) paths.push(a.items[i].file);
+    app.project.importFiles(paths, true, bin, false);
+    // retrouve les éléments importés par nom de fichier
+    var byName = {};
+    for (var k = 0; k < bin.children.numItems; k++) byName[bin.children[k].name] = bin.children[k];
+    var report = { placed: 0, missing: 0, popFailed: 0 };
+    var mode = a.keyTimeMode || ONESEC_KEY_TIME_MODE;
+    for (i = 0; i < a.items.length; i++) {
+      var it = a.items[i], nm = File(it.file).name, pi = byName[nm] || byName[decodeURI(nm)];
+      if (!pi) { report.missing++; continue; }
+      var dur = Math.max(1 / fps, it.end - it.start);
+      try {
+        pi.clearInOutPoints();
+        var still = OneSec_secs(pi.getOutPoint());
+        if (dur > still - 1 / fps) dur = still - 1 / fps; // durée max d'une image fixe (préférences Premiere)
+        pi.setInPoint(0, 4);
+        pi.setOutPoint(dur, 4);
+        track.overwriteClip(pi, it.start);
+        report.placed++;
+        if (it.pop) {
+          var found = OneSec_findTrackItemAt(track, it.start, pi.nodeId);
+          if (found) {
+            var motion = OneSec_findMotion(found.item), ps = OneSec_motionProp(motion, 'scale', 1);
+            var pf = (a.popFrames || 3) / fps;
+            try { OneSec_setKeys(ps, found.item, [{ t: 0, v: 82 }, { t: pf, v: 104 }, { t: pf * 1.8, v: 100 }], function (kf) { return kf.v; }, mode); }
+            catch (ePop) { report.popFailed++; }
+          }
+        }
+      } catch (e) { report.missing++; }
+    }
+    return OneSec_ok(report);
+  } catch (e) { return OneSec_err(e); }
+}
+
+/** Retire les textes 1SEC (clips issus du chutier « 1SEC Textes ») d'une piste. args: { videoTrack, range? } */
+function OneSec_clearTexts(s) {
+  try {
+    var a = OneSec_args(s), seq = OneSec_seq(), n = 0;
+    var tracks = a.videoTrack == null ? seq.videoTracks : [seq.videoTracks[a.videoTrack]];
+    for (var t = 0; t < (a.videoTrack == null ? tracks.numTracks : 1); t++) {
+      var track = a.videoTrack == null ? tracks[t] : tracks[0];
+      for (var i = track.clips.numItems - 1; i >= 0; i--) {
+        var c = track.clips[i], pi = c.projectItem;
+        if (!pi || !pi.treePath || pi.treePath.indexOf(ONESEC_TEXT_BIN) < 0) continue;
+        var st = OneSec_secs(c.start);
+        if (a.range && (OneSec_secs(c.end) <= a.range.start || st >= a.range.end)) continue;
+        c.remove(false, false); n++;
+      }
+    }
+    return OneSec_ok({ removed: n });
+  } catch (e) { return OneSec_err(e); }
+}

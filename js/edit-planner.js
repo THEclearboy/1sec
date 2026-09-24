@@ -389,6 +389,8 @@
     shots.forEach(function (s, i) {
       s.progress = shots.length > 1 ? i / (shots.length - 1) : 0;
       s.key = shotKey(s.start);
+      // Hook : les premiers plans montrent le meilleur (on accroche avant de raconter)
+      if (opts.hookSeconds && s.start < range.start + opts.hookSeconds) { s.importance = Math.max(s.importance, 1.15); s.hook = true; }
     });
 
     // Réglages par plan (vitesse / rush) des plans non verrouillés

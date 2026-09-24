@@ -31,7 +31,8 @@
       selectedSection: null,
       color: null,
       framing: null,
-      effects: null
+      effects: null,
+      text: null
     };
   }
 
@@ -125,7 +126,7 @@
       sectionSettings: S.sectionSettings,
       moments: moments(),
       overrides: S.overrides,
-      options: Object.assign({}, S.options, { tail: S.options.tailFrames / fps })
+      options: Object.assign({}, S.options, { tail: S.options.tailFrames / fps, hookSeconds: S.text && S.text.hook ? S.text.hookSec : 0 })
     });
   }
 
@@ -151,6 +152,7 @@
     if (n === 4) return !!S.lastBuild;
     if (n === 5) return !!(S.color && S.color.applied);
     if (n === 6) return !!(S.effects && S.effects.applied);
+    if (n === 7) return !!(S.text && S.text.applied);
     return false;
   }
 
@@ -584,6 +586,7 @@
     try { if (root.OneSecColorUI) root.OneSecColorUI.render(); } catch (e) { console.error('[1SEC] colo', e); }
     try { if (root.OneSecFramingUI) root.OneSecFramingUI.render(); } catch (e2) { console.error('[1SEC] cadrage', e2); }
     try { if (root.OneSecEffectsUI) root.OneSecEffectsUI.render(); } catch (e3) { console.error('[1SEC] effets', e3); }
+    try { if (root.OneSecTextUI) root.OneSecTextUI.render(); } catch (e4) { console.error('[1SEC] textes', e4); }
     document.querySelectorAll('#steps button').forEach(function (b) {
       var n = +b.getAttribute('data-step');
       b.classList.toggle('done', isDone(n) && n !== S.step);
@@ -722,8 +725,8 @@
   function start() {
     loadState();
     bind();
-    var helpers = { state: function () { return S; }, plan: function () { return planResult; }, save: saveSoon, toast: toast, busy: busy, run: run, el: el, $: $, fmt: fmt, esc: esc, musicRange: musicRange, timelineOffset: timelineOffset };
-    [root.OneSecFrames, root.OneSecColorUI, root.OneSecFramingUI, root.OneSecEffectsUI].forEach(function (m) {
+    var helpers = { state: function () { return S; }, plan: function () { return planResult; }, replan: function () { replan(); renderAll(); }, save: saveSoon, toast: toast, busy: busy, run: run, el: el, $: $, fmt: fmt, esc: esc, musicRange: musicRange, timelineOffset: timelineOffset };
+    [root.OneSecFrames, root.OneSecColorUI, root.OneSecFramingUI, root.OneSecEffectsUI, root.OneSecTextUI].forEach(function (m) {
       if (!m) return;
       try { m.init(helpers); } catch (e) { console.error('[1SEC] module', e); toast('Un module n\'a pas démarré : ' + e.message, 'err'); }
     });

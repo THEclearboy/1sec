@@ -125,6 +125,8 @@
     OneSec_resetFraming: function () { return { reset: 6 }; },
     OneSec_applyEffects: function (a) { var r = { motion: 0, transitions: 0, pulse: 0, missing: 0, failed: {}, transitionMissing: [] }; a.ops.forEach(function (o) { if (o.type === 'transition') r.transitions++; else if (o.type === 'pulse') r.pulse++; else r.motion++; }); return r; },
     OneSec_clearEffects: function () { return { cleared: 6, note: '' }; },
+    OneSec_placeTexts: function (a) { return { placed: a.items.length, missing: 0, popFailed: 0 }; },
+    OneSec_clearTexts: function () { return { removed: 0 }; },
     OneSec_diagFrames: function () { return { dir: 'demo', files: [] }; },
     OneSec_listLumetriParams: function () { return [{ index: 0, name: 'Temperature', value: 0 }, { index: 1, name: 'Tint', value: 0 }]; }
   };
