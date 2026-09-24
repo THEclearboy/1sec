@@ -94,8 +94,49 @@
     },
     OneSec_buildEdit: function (a) { root.console && console.log('[démo] montage', a); return { placed: a.shots.length, speedFailed: 0, missing: 0, removed: 0, audioRemoved: 0, musicRestored: false, errors: [] }; },
     OneSec_clearEdit: function () { return { removed: 0 }; },
-    OneSec_setPlayhead: function () { return true; }
+    OneSec_setPlayhead: function () { return true; },
+    OneSec_getTrackClips: function (a) {
+      var clips = [], names = ['Saut_01', 'Ride_02', 'Trick_03', 'Chute_04', 'Run_05', 'Slide_06'];
+      for (var i = 0; i < 6; i++) clips.push({ name: names[i] + '.mp4', kind: 'video', trackIndex: a.videoTrack, start: 10 + i * 4, end: 14 + i * 4, inPoint: 2, outPoint: 6, nodeId: 'clip' + i, index: i, hasLumetri: false });
+      return { clips: clips, fps: 25, sequence: 'Séquence démo' };
+    },
+    OneSec_exportFrames: function (a) {
+      // Images de synthèse variées (sombre/froid, clair/chaud, etc.)
+      var files = a.times.map(function (t, i) {
+        var c = document.createElement('canvas'); c.width = 160; c.height = 90;
+        var g = c.getContext('2d'), k = i % 6;
+        var grad = g.createLinearGradient(0, 0, 0, 90);
+        var pal = [['#1a2238', '#5c6b8a'], ['#ffe2b0', '#c48a4a'], ['#3b6d3a', '#a9d18e'], ['#0b0b0e', '#4b4b55'], ['#f2f2f2', '#9aa0a6'], ['#7a2e2e', '#e8a37c']][k];
+        grad.addColorStop(0, pal[0]); grad.addColorStop(1, pal[1]);
+        g.fillStyle = grad; g.fillRect(0, 0, 160, 90);
+        g.fillStyle = '#d9a077'; g.beginPath(); g.arc(80 + (k - 3) * 10, 45, 18, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(20, 70, 40 + k * 10, 6);
+        return c.toDataURL('image/png');
+      });
+      return { files: files, errors: [] };
+    },
+    OneSec_applyGrades: function (a) { return { applied: a.grades.length, noLumetri: 0, failedParams: {}, missing: 0 }; },
+    OneSec_removeGrades: function () { return { removed: 0 }; },
+    OneSec_listLumetriParams: function () { return [{ index: 0, name: 'Temperature', value: 0 }, { index: 1, name: 'Tint', value: 0 }]; }
   };
 
-  root.OneSecBridge = { call: call, decodeAudio: decodeAudio, demo: Demo, isCEP: Boot.isCEP };
+  /** Charge une image (chemin disque, data-URL ou File) → HTMLImageElement. */
+  function loadImage(source) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () { resolve(img); };
+      img.onerror = function () { reject(new Error('Image illisible : ' + (source.name || source))); };
+      if (typeof File !== 'undefined' && source instanceof File) img.src = URL.createObjectURL(source);
+      else if (/^data:/.test(source)) img.src = source;
+      else img.src = 'file://' + (source.charAt(0) === '/' ? '' : '/') + source.replace(/\\/g, '/') + '?t=' + Date.now();
+    });
+  }
+
+  function tempDir() {
+    if (!Boot.nodeRequire) return '/tmp/onesec-frames';
+    var os = Boot.nodeRequire('os'), path = Boot.nodeRequire('path');
+    return path.join(os.tmpdir(), 'onesec-frames').replace(/\\/g, '/');
+  }
+
+  root.OneSecBridge = { call: call, decodeAudio: decodeAudio, loadImage: loadImage, tempDir: tempDir, demo: Demo, isCEP: Boot.isCEP };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

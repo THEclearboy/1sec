@@ -28,6 +28,7 @@
     <button data-step="2"><b>2</b> Rushes</button>
     <button data-step="3"><b>3</b> Rythme</button>
     <button data-step="4"><b>4</b> Montage</button>
+    <button data-step="5"><b>5</b> Colo</button>
   </nav>
 
   <section class="viz" id="viz">
@@ -143,6 +144,46 @@
       </div>
       <div id="build-report" class="summary hidden"></div>
       <p class="help small">Astuce : pour des ralentis fluides, sélectionnez les plans ralentis et choisissez <i>Interpolation temporelle → Flux optique</i>. Modifiez ensuite les réglages à l'étape 3 et reconstruisez : la piste est remplacée.</p>
+    </section>
+
+    <!-- ÉTAPE 5 -->
+    <section class="panel" data-panel="5">
+      <p class="help">Une vraie colo, plan par plan : chaque clip est <b>analysé</b> (exposition, balance, contraste, dominantes, peau), <b>raccordé</b> aux autres, puis reçoit le <b>look</b> adapté à son image. Tout est appliqué dans <i>Lumetri Color</i> sur chaque clip : vous gardez la main dans Premiere.</p>
+      <div class="card">
+        <div class="kv"><span>Piste à étalonner</span><select id="grade-track"></select>
+          <label class="check"><input type="checkbox" id="grade-range-only" checked> zone de la musique seulement</label></div>
+        <div class="row"><button id="btn-grade-analyze" class="primary">🎞 Analyser les plans</button><span id="grade-analyzed" class="muted"></span></div>
+      </div>
+
+      <h3>Direction artistique</h3>
+      <div id="looks" class="looks"></div>
+      <div class="row">
+        <label class="file">📷 Image de référence<input type="file" id="ref-image" accept="image/*"></label>
+        <span id="ref-info" class="muted"></span>
+      </div>
+      <div class="card" id="grade-fine">
+        <div class="kv"><span>Intensité du look</span><span class="slider">0 <input type="range" id="g-intensity" min="0" max="1.5" step="0.05" value="1"> 150 %</span><b id="g-intensity-v">100 %</b></div>
+        <div class="kv"><span>Force du raccord</span><span class="slider">libre <input type="range" id="g-match" min="0" max="1" step="0.05" value="0.8"> strict</span></div>
+        <div class="kv"><span>Chaleur</span><span class="slider">froid <input type="range" id="g-warm" min="-2" max="2" step="0.1" value="0"> chaud</span></div>
+        <div class="kv"><span>Contraste</span><span class="slider">doux <input type="range" id="g-contrast" min="-1" max="1" step="0.1" value="0"> dur</span></div>
+        <div class="kv"><span>Saturation</span><span class="slider">− <input type="range" id="g-saturation" min="-1" max="1" step="0.1" value="0"> +</span></div>
+        <div class="kv"><span>Exposition</span><span class="slider">− <input type="range" id="g-exposure" min="-1" max="1" step="0.05" value="0"> +</span></div>
+        <div class="kv"><span>Teinte des ombres</span><span class="slider">− <input type="range" id="g-shadow" min="-1" max="1" step="0.1" value="0"> +</span></div>
+        <div class="kv"><span>Teinte des lumières</span><span class="slider">− <input type="range" id="g-highlight" min="-1" max="1" step="0.1" value="0"> +</span></div>
+        <div class="kv"><span>Vignette</span><span class="slider">− <input type="range" id="g-vignette" min="-1" max="1" step="0.1" value="0"> +</span></div>
+        <label class="check"><input type="checkbox" id="g-skin" checked> Protéger les tons de peau</label>
+        <div class="row"><button id="btn-grade-reset" class="small ghost">Remettre les réglages fins à zéro</button></div>
+      </div>
+
+      <h3>Plans <small>— avant / après (aperçu approximatif), cliquez pour ajuster un plan</small></h3>
+      <div id="grade-shots" class="grade-grid"></div>
+
+      <div class="row" style="margin-top:14px">
+        <button id="btn-grade-apply" class="primary big">🎨 Appliquer la colo dans Premiere</button>
+        <button id="btn-grade-remove" class="ghost">Retirer Lumetri des clips</button>
+        <button id="btn-grade-diag" class="ghost small" title="Liste les paramètres Lumetri vus par le script (pour adapter les noms)">Diagnostic Lumetri</button>
+      </div>
+      <div id="grade-report" class="summary hidden"></div>
     </section>
   </main>
 

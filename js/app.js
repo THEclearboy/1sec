@@ -28,7 +28,8 @@
       overrides: {},
       build: { videoTrack: null, clearTrack: true, muteRushAudio: true },
       lastBuild: null,
-      selectedSection: null
+      selectedSection: null,
+      color: null
     };
   }
 
@@ -146,6 +147,7 @@
     if (n === 2) return S.clips.length > 0;
     if (n === 3) return !!(planResult && planResult.shots.length && S.clips.length);
     if (n === 4) return !!S.lastBuild;
+    if (n === 5) return !!(S.color && S.color.applied);
     return false;
   }
 
@@ -576,6 +578,7 @@
     renderShots();
     renderBuild();
     drawTimeline();
+    if (root.OneSecColorUI) root.OneSecColorUI.render();
     document.querySelectorAll('#steps button').forEach(function (b) {
       var n = +b.getAttribute('data-step');
       b.classList.toggle('done', isDone(n) && n !== S.step);
@@ -697,6 +700,7 @@
   function start() {
     loadState();
     bind();
+    if (root.OneSecColorUI) root.OneSecColorUI.init({ state: function () { return S; }, save: saveSoon, toast: toast, busy: busy, run: run, el: el, $: $, fmt: fmt, esc: esc, musicRange: musicRange, timelineOffset: timelineOffset });
     checkConnection();
     loadBins();
     replan();

@@ -75,6 +75,28 @@ de fois que nécessaire : la piste est remplacée.
 Pour des ralentis fluides : sélectionnez les plans ralentis dans Premiere,
 *Interpolation temporelle ▸ Flux optique*.
 
+### Étape 5 — Colo
+Une vraie colorimétrie plan par plan, pas un filtre :
+1. **Analyser les plans** : une image de chaque clip de la piste choisie est
+   exportée depuis Premiere et mesurée (histogramme, point noir / blanc,
+   balance, contraste, dominantes ombres / hautes lumières, tons de peau, écrêtage).
+2. **Direction artistique** : un look (Naturel, Cinéma chaud, Teal & Orange,
+   Froid / Nuit, Punchy sport, Vintage, Désaturé, Noir & blanc) **ou une image
+   de référence** dont le rendu est extrait, puis des réglages fins (intensité,
+   force du raccord, chaleur, contraste, saturation, exposition, teintes
+   ombres / lumières, vignette, protection des peaux).
+3. **Aperçu avant / après** de chaque plan, avec réglage individuel (look,
+   exposition, chaleur, contraste, saturation) ou exclusion d'un plan.
+4. **Appliquer** : un effet *Lumetri Color* est ajouté à chaque clip et réglé
+   paramètre par paramètre (correction primaire propre au plan pour le raccord,
+   puis look adapté au plan). Tout reste modifiable à la main dans Premiere.
+
+Limites : les roues de teinte (split-toning) ne sont pas pilotables par
+script — l'aperçu les montre, à pousser à la main dans Lumetri si besoin. Les
+noms des paramètres Lumetri dépendent de la langue de Premiere : si le rapport
+signale des paramètres non trouvés, *Diagnostic Lumetri* affiche la liste
+réelle pour adapter `ONESEC_LUMETRI_NAMES` dans `jsx/host.jsx`.
+
 ## Comment le rythme est décidé
 
 - Les coupes tombent sur la grille des temps (demi-temps possibles), les plans
@@ -99,5 +121,6 @@ Débogage du panneau dans Premiere : `.debug` expose le panneau sur
 Structure :
 - `js/audio-analysis.js` — tempo, temps, mesures, énergie, sections, moments forts (pur JS).
 - `js/edit-planner.js` — découpage rythmique, attribution des rushes, marqueurs.
-- `js/app.js` — interface par étapes ; `js/bridge.js` — pont Premiere / mode démo ; `js/boot.js` — rechargement à chaud.
+- `js/color-grade.js` — analyse d'image, looks, calcul de la colo par plan, aperçu.
+- `js/app.js` — interface par étapes ; `js/app-color.js` — étape colo ; `js/bridge.js` — pont Premiere / mode démo ; `js/boot.js` — rechargement à chaud.
 - `jsx/host.jsx` — côté Premiere (lecture des clips/marqueurs, pose des marqueurs, montage, vitesses).

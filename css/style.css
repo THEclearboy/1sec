@@ -137,3 +137,26 @@ details summary { cursor: pointer; margin: 14px 0 6px; font-weight: 600; color: 
 .busy { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; gap: 10px; z-index: 40; color: #fff; }
 .spinner { width: 20px; height: 20px; border: 3px solid #555; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.muted { color: var(--muted); font-size: 11px; }
+.looks { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
+.look { background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; cursor: pointer; text-align: left; }
+.look:hover { border-color: #555; }
+.look.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.look b { display: block; color: #fff; font-size: 11px; }
+.look small { color: var(--muted); font-size: 10px; line-height: 1.25; display: block; }
+.look .sw { display: flex; height: 8px; border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+.look .sw i { flex: 1; }
+.grade-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.gshot { background: var(--bg2); border: 1px solid var(--line); border-radius: 5px; overflow: hidden; cursor: pointer; }
+.gshot.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.gshot.off { opacity: .5; }
+.gshot .ba { display: flex; }
+.gshot canvas { width: 50%; display: block; background: #000; }
+.gshot .cap { font-size: 10px; padding: 3px 6px; display: flex; justify-content: space-between; color: var(--muted); }
+.gshot .cap b { color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
+.gshot .tweak { padding: 4px 6px; border-top: 1px solid var(--line); display: none; flex-direction: column; gap: 3px; font-size: 10px; }
+.gshot.on .tweak { display: flex; }
+.gshot .tweak label { display: flex; align-items: center; gap: 4px; color: var(--muted); }
+.gshot .tweak input[type=range] { width: 80px; }
+.gshot .warn { color: var(--warn); }
