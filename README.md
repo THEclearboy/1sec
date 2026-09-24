@@ -118,9 +118,11 @@ Si les images clés tombent au mauvais endroit dans votre version de Premiere,
 changez *Temps des images clés* (réglages avancés) et ré-appliquez.
 
 ### Étape 7 — Textes
-Textes dynamiques **mot à mot calés sur les temps** : mode *empilé* (les mots
-s'ajoutent ligne par ligne, le dernier mot en grand) ou *mot à mot* (chaque mot
-remplace le précédent). Option **Hook au début** : une accroche sur les
+Textes dynamiques **calés sur les temps** : mode *dynamique* (groupes de 1 à 3
+mots, taille selon l'impact du mot — `*étoiles*` ou MAJUSCULES pour forcer —,
+positions et rotations variées, durée selon le poids du groupe, 🎲 variante),
+*empilé* (les mots s'ajoutent ligne par ligne, le dernier en grand) ou *mot à
+mot* (chaque mot remplace le précédent). Option **Hook au début** : une accroche sur les
 premières secondes, et le montage y place vos meilleurs moments. Styles
 (Impact, Épuré, Capitales, Contour, Jaune), police libre, taille, position,
 piste. Chaque état du texte est rendu en PNG transparent à la taille de la

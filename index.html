@@ -266,7 +266,7 @@
           <span class="slider"><input type="range" id="tx-hook-sec" min="1" max="6" step="0.5" value="3"> <b id="tx-hook-sec-v">3 s</b></span></div>
       </div>
       <div class="card">
-        <div class="kv"><span>Phrases</span><small class="muted">une par ligne — chaque mot arrive sur un temps, le dernier est mis en avant</small></div>
+        <div class="kv"><span>Phrases</span><small class="muted">une par ligne — *étoiles* ou MAJUSCULES pour forcer un mot fort</small></div>
         <textarea id="tx-phrases" rows="5" placeholder="Tu consommes plus que tu ne crées.&#10;Tu scrolles pendant des heures et tu appelles ça de la recherche."></textarea>
         <div class="kv"><span>Où</span>
           <select id="tx-where">
@@ -274,7 +274,11 @@
             <option value="all">Sur toute la musique</option>
             <option value="drop">À partir du drop</option>
           </select>
-          <select id="tx-mode"><option value="stack">Empilé (les mots s'ajoutent)</option><option value="word">Mot à mot (remplace)</option></select></div>
+          <select id="tx-mode"><option value="dynamic">Dynamique (groupes, tailles, positions)</option><option value="stack">Empilé (les mots s'ajoutent)</option><option value="word">Mot à mot (remplace)</option></select></div>
+        <div class="kv" id="tx-dyn-row"><span>Dynamique</span>
+          <span class="slider">sage <input type="range" id="tx-variety" min="0" max="1" step="0.05" value="0.7"> déchaîné</span>
+          <span class="slider">tailles <input type="range" id="tx-spread" min="0.2" max="1" step="0.05" value="0.8"> ±</span>
+          <button id="btn-tx-seed" class="small">🎲 Variante</button></div>
         <div class="kv"><span>Rythme</span>
           <select id="tx-wpb"><option value="auto">Auto</option><option value="0.5">Un mot tous les 2 temps</option><option value="1">Un mot par temps</option><option value="2">Un mot par demi-temps</option></select>
           <span class="slider">tenue <input type="range" id="tx-hold" min="1" max="6" step="0.5" value="2"> <b id="tx-hold-v">2 temps</b></span></div>
@@ -286,7 +290,7 @@
           <span>Mot final</span><span class="slider">× <input type="range" id="tx-emph" min="1" max="2.2" step="0.1" value="1.5"></span></div>
         <div class="kv"><span>Position</span><span class="slider">haut <input type="range" id="tx-y" min="0.2" max="0.85" step="0.01" value="0.5"> bas</span>
           <span>Piste</span><select id="tx-track"></select></div>
-        <div class="tx-preview"><canvas id="tx-preview"></canvas><span class="muted">aperçu</span></div>
+        <div class="tx-preview"><canvas id="tx-preview" style="cursor:pointer"></canvas><span class="muted" id="tx-preview-cap">aperçu</span></div>
       </div>
       <div id="tx-summary" class="summary"></div>
       <div class="row">

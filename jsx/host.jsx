@@ -871,7 +871,8 @@ function OneSec_placeTexts(s) {
           if (found) {
             var motion = OneSec_findMotion(found.item), ps = OneSec_motionProp(motion, 'scale', 1);
             var pf = (a.popFrames || 3) / fps;
-            try { OneSec_setKeys(ps, found.item, [{ t: 0, v: 82 }, { t: pf, v: 104 }, { t: pf * 1.8, v: 100 }], function (kf) { return kf.v; }, mode); }
+            var st = it.popStrength || 1;
+            try { OneSec_setKeys(ps, found.item, [{ t: 0, v: 100 - 18 * st }, { t: pf, v: 100 + 4 * st }, { t: pf * 1.8, v: 100 }], function (kf) { return kf.v; }, mode); }
             catch (ePop) { report.popFailed++; }
           }
         }

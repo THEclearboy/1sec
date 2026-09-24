@@ -9,7 +9,7 @@
   function S() { return H.state(); }
   function TS() {
     var s = S();
-    if (!s.text) s.text = { hook: false, hookText: '', hookSec: 3, phrases: '', where: 'intro', mode: 'stack', wpb: 'auto', hold: 2,
+    if (!s.text) s.text = { hook: false, hookText: '', hookSec: 3, phrases: '', where: 'intro', mode: 'dynamic', wpb: 'auto', hold: 2, variety: 0.7, spread: 0.8, seed: 7,
       style: 'impact', font: '', size: 0.085, emph: 1.5, y: 0.5, track: null, applied: false };
     return s.text;
   }
@@ -25,21 +25,25 @@
     var from = range.start, to = range.end;
     if (ts.where === 'intro') to = drop ? drop.start : Math.min(range.end, range.start + 15);
     if (ts.where === 'drop') from = drop ? drop.start : range.start;
-    var opts = { mode: ts.mode, wordsPerBeat: ts.wpb === 'auto' ? 'auto' : +ts.wpb, hold: ts.hold, timelineOffset: off };
+    var opts = { mode: ts.mode, wordsPerBeat: ts.wpb === 'auto' ? 'auto' : +ts.wpb, hold: ts.hold, timelineOffset: off, variety: ts.variety, sizeSpread: ts.spread, seed: ts.seed };
+    var planFn = function (ph, o) { return ts.mode === 'dynamic' ? T.planDynamic(ph, an, o) : T.planTexts(ph, an, o); };
     if (ts.hook && ts.hookText.trim()) {
       var hw = T.hookWindow(an, ts.hookSec);
-      cards = cards.concat(T.planTexts([ts.hookText], an, Object.assign({}, opts, { from: range.start + hw.start, to: range.start + hw.end, mode: 'stack', hold: 3, wordsPerBeat: 'auto' })).map(function (c) { c.hook = true; return c; }));
+      cards = cards.concat(planFn([ts.hookText], Object.assign({}, opts, { from: range.start + hw.start, to: range.start + hw.end, hold: 3, wordsPerBeat: 'auto' })).map(function (c) { c.hook = true; return c; }));
       if (from < range.start + hw.end) from = range.start + hw.end + 60 / an.bpm;
     }
     var phrases = ts.phrases.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
-    if (phrases.length && to > from) cards = cards.concat(T.planTexts(phrases, an, Object.assign({}, opts, { from: from, to: to })));
+    if (phrases.length && to > from) cards = cards.concat(planFn(phrases, Object.assign({}, opts, { from: from, to: to })));
   }
 
   function styleOf() { var ts = TS(); return { preset: ts.style, fontFamily: ts.font || null, size: ts.size, emphasisScale: ts.emph, y: ts.y }; }
 
+  var previewIdx = 0;
   function renderPreview() {
     var cv = H.$('tx-preview'), sz = seqSize();
-    var sample = cards.filter(function (c) { return c.lines.length > 1; })[0] || cards[0] || { lines: [{ text: 'Regarde' }, { text: 'jusqu\'à' }, { text: 'la fin.', emphasis: true }] };
+    if (cards.length) { previewIdx = previewIdx % cards.length; var c0 = cards[previewIdx]; var pw0 = 270, ph0 = Math.round(pw0 * sz.height / sz.width); var k0 = R.renderCard(c0, styleOf(), pw0, ph0); cv.width = pw0; cv.height = ph0; cv.getContext('2d').drawImage(k0, 0, 0); H.$('tx-preview-cap').textContent = 'aperçu ' + (previewIdx + 1) + '/' + cards.length + ' · ' + H.fmt(c0.start) + ' — cliquez pour le suivant'; return; }
+    H.$('tx-preview-cap').textContent = 'aperçu';
+    var sample = cards.filter(function (c) { return c.lines.length > 1 || (c.words && c.words.length > 1); })[0] || cards[0] || { lines: [{ text: 'Regarde' }, { text: 'jusqu\'à' }, { text: 'la fin.', emphasis: true }] };
     var pw = 270, ph = Math.round(pw * sz.height / sz.width);
     var card = R.renderCard(sample, styleOf(), pw, ph);
     cv.width = pw; cv.height = ph;
@@ -53,6 +57,8 @@
     H.$('tx-hook-text').value = ts.hookText; H.$('tx-hook-sec').value = ts.hookSec; H.$('tx-hook-sec-v').textContent = ts.hookSec + ' s';
     H.$('tx-phrases').value = ts.phrases; H.$('tx-where').value = ts.where; H.$('tx-mode').value = ts.mode; H.$('tx-wpb').value = ts.wpb;
     H.$('tx-hold').value = ts.hold; H.$('tx-hold-v').textContent = ts.hold + ' temps';
+    H.$('tx-variety').value = ts.variety; H.$('tx-spread').value = ts.spread;
+    H.$('tx-dyn-row').classList.toggle('hidden', ts.mode !== 'dynamic'); H.$('tx-wpb').disabled = ts.mode === 'dynamic';
     var st = H.$('tx-style');
     if (!st.options.length) Object.keys(R.STYLES).forEach(function (k) { st.appendChild(H.el('option', { value: k, text: R.STYLES[k].label })); });
     st.value = ts.style; H.$('tx-font').value = ts.font; H.$('tx-size').value = ts.size; H.$('tx-emph').value = ts.emph; H.$('tx-y').value = ts.y;
@@ -98,7 +104,7 @@
         var b64 = R.toPngBase64(cv);
         var name = '1sec_text_' + stamp + '_' + String(i).padStart(3, '0') + '.png';
         var file = B.isCEP ? writePng(dir, name, b64) : name;
-        items.push({ file: file, start: Math.round(c.timelineStart * fps) / fps, end: Math.round(c.timelineEnd * fps) / fps, pop: !!c.pop });
+        items.push({ file: file, start: Math.round(c.timelineStart * fps) / fps, end: Math.round(c.timelineEnd * fps) / fps, pop: !!c.pop, popStrength: c.popStrength || 1 });
       });
     }, Promise.resolve());
     H.run(work.then(function () {
@@ -134,12 +140,16 @@
     on('tx-mode', 'change', function (t, ts) { ts.mode = t.value; });
     on('tx-wpb', 'change', function (t, ts) { ts.wpb = t.value; });
     on('tx-hold', 'input', function (t, ts) { ts.hold = +t.value; });
+    on('tx-variety', 'input', function (t, ts) { ts.variety = +t.value; });
+    on('tx-spread', 'input', function (t, ts) { ts.spread = +t.value; });
+    on('btn-tx-seed', 'click', function (t, ts) { ts.seed = (ts.seed * 7919 + 13) % 100003; });
     on('tx-style', 'change', function (t, ts) { ts.style = t.value; });
     on('tx-font', 'change', function (t, ts) { ts.font = t.value.trim(); });
     on('tx-size', 'input', function (t, ts) { ts.size = +t.value; });
     on('tx-emph', 'input', function (t, ts) { ts.emph = +t.value; });
     on('tx-y', 'input', function (t, ts) { ts.y = +t.value; });
     on('tx-track', 'change', function (t, ts) { ts.track = +t.value; });
+    H.$('tx-preview').addEventListener('click', function () { previewIdx++; renderPreview(); });
     H.$('btn-tx-apply').addEventListener('click', function () { clearTexts(true).catch(function () {}).then(apply); });
     H.$('btn-tx-clear').addEventListener('click', function () { H.run(clearTexts(false)).then(function () { TS().applied = false; render(); H.save(); }); });
   }
