@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  var SCRIPTS = ['js/audio-analysis.js', 'js/edit-planner.js', 'js/color-grade.js', 'js/bridge.js', 'js/app.js', 'js/app-color.js'];
+  var SCRIPTS = ['js/audio-analysis.js', 'js/edit-planner.js', 'js/color-grade.js', 'js/bridge.js', 'js/app.js', 'js/app-frames.js', 'js/app-color.js', 'js/app-framing.js'];
   var isCEP = !!(window.__adobe_cep__);
   var nodeRequire = (window.cep_node && window.cep_node.require) || (typeof window.require === 'function' ? window.require : null);
 

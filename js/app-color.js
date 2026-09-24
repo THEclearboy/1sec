@@ -3,9 +3,8 @@
  */
 (function (root) {
   'use strict';
-  var C = root.OneSecColor, B = root.OneSecBridge;
+  var C = root.OneSecColor, B = root.OneSecBridge, F = root.OneSecFrames;
   var H = null; // helpers fournis par app.js
-  var frames = {}; // clé du plan → { img, stats, small (ImageData réduite) }
   var refTarget = null, refImage = null;
 
   function S() { return H.state(); }
@@ -14,11 +13,10 @@
     if (!s.color) s.color = {
       track: null, rangeOnly: true, look: 'naturel', useRef: false,
       intensity: 1, match: 0.8, adjust: { warm: 0, contrast: 0, saturation: 0, exposure: 0, shadowStrength: 0, highlightStrength: 0, vignette: 0 },
-      protectSkin: true, clips: [], perShot: {}, selected: null, applied: false, refName: null
+      protectSkin: true, groups: [], perRush: {}, selected: null, applied: false, refName: null
     };
     return s.color;
   }
-  function key(c) { return 't' + Math.round(c.start * 1000); }
 
   function currentLook() {
     var cs = CS();
@@ -26,10 +24,10 @@
     return C.LOOKS[cs.look] || C.LOOKS.naturel;
   }
 
-  function gradeFor(c) {
-    var cs = CS(), f = frames[key(c)];
-    if (!f) return null;
-    var ps = cs.perShot[key(c)] || {};
+  function gradeFor(g) {
+    var cs = CS(), f = F.get(g.id);
+    if (!f || !f.stats) return null;
+    var ps = cs.perRush[g.id] || {};
     var adj = Object.assign({}, cs.adjust);
     ['exposure', 'warm', 'contrast', 'saturation'].forEach(function (k) { if (ps[k]) adj[k] += ps[k]; });
     return C.gradeShot(f.stats, currentLook(), {
@@ -41,45 +39,16 @@
   // ------------------------------------------------------------ analyse des plans
 
   function analyzeShots() {
-    var cs = CS(), s = S();
-    var range = null;
-    if (cs.rangeOnly && s.music) range = { start: s.music.start, end: s.music.end };
-    var track = cs.track == null ? (s.build.videoTrack || 0) : cs.track;
-    var clips;
-    H.busy(true, 'Lecture des clips…');
-    return H.run(B.call('OneSec_getTrackClips', { videoTrack: track, range: range }).then(function (r) {
-      clips = r.clips;
-      if (!clips.length) throw new Error('Aucun clip sur cette piste' + (range ? ' dans la zone de la musique' : '') + '.');
-      H.busy(true, 'Export de ' + clips.length + ' images…');
-      var times = clips.map(function (c) { return c.start + (c.end - c.start) * 0.5; });
-      return B.call('OneSec_exportFrames', { times: times, dir: B.tempDir() });
-    }).then(function (r) {
-      var missing = r.files.filter(function (f) { return !f; }).length;
-      H.busy(true, 'Analyse des images…');
-      frames = {};
-      return clips.reduce(function (p, c, i) {
-        return p.then(function () {
-          if (!r.files[i]) return;
-          return B.loadImage(r.files[i]).then(function (img) {
-            var cv = document.createElement('canvas');
-            var scale = Math.min(1, 320 / img.width);
-            cv.width = Math.round(img.width * scale); cv.height = Math.round(img.height * scale);
-            var ctx = cv.getContext('2d');
-            ctx.drawImage(img, 0, 0, cv.width, cv.height);
-            var data = ctx.getImageData(0, 0, cv.width, cv.height);
-            frames[key(c)] = { small: data, stats: C.analyzeImage(data, 1), path: r.files[i] };
-          }).catch(function () {});
-        });
-      }, Promise.resolve()).then(function () {
-        H.busy(false);
-        cs.clips = clips.map(function (c) { return { name: c.name, start: c.start, end: c.end, nodeId: c.nodeId, index: c.index, analyzed: !!frames[key(c)] }; });
-        cs.applied = false;
-        render(); H.save();
-        if (missing) H.toast(missing + ' image(s) non exportée(s) : ' + (r.errors[0] || ''), 'err');
-        return clips;
-      });
-    }), function (clips) { return clips.length + ' plans analysés'; });
+    var cs = CS();
+    return H.run(F.load(trackIndex(), rangeOf(), 'Colo').then(function (r) {
+      cs.groups = r.groups.map(function (g) { return { id: g.id, name: g.name, starts: g.clips.map(function (c) { return c.start; }) }; });
+      cs.applied = false;
+      render(); H.save();
+      if (r.missing) H.toast(r.missing + ' image(s) non exportée(s) : ' + (r.errors[0] || ''), 'err');
+      return r;
+    }), function (r) { return r.groups.length + ' rushes (' + r.clips.length + ' plans) analysés'; });
   }
+  function rangeOf() { var cs = CS(), s = S(); return cs.rangeOnly && s.music ? { start: s.music.start, end: s.music.end } : null; }
 
   // ------------------------------------------------------------ rendu
 
@@ -135,31 +104,32 @@
     sel.value = cs.track == null ? (s.build.videoTrack || 0) : cs.track;
     H.$('grade-range-only').checked = cs.rangeOnly;
     H.$('grade-range-only').disabled = !s.music;
-    H.$('grade-analyzed').textContent = cs.clips.length ? cs.clips.length + ' plans' + (Object.keys(frames).length ? '' : ' (images à ré-analyser)') : '';
-    H.$('btn-grade-apply').disabled = !cs.clips.length || !Object.keys(frames).length;
+    var nShots = cs.groups.reduce(function (n, g) { return n + g.starts.length; }, 0);
+    H.$('grade-analyzed').textContent = cs.groups.length ? cs.groups.length + ' rushes · ' + nShots + ' plans' + (F.has() ? '' : ' (images à ré-analyser)') : '';
+    H.$('btn-grade-apply').disabled = !cs.groups.length || !F.has();
   }
 
   var thumbTimer = null;
   function renderShots() {
     var cs = CS(), box = H.$('grade-shots');
     box.innerHTML = '';
-    if (!cs.clips.length) { box.appendChild(H.el('p', { class: 'help small', text: 'Analysez les plans de la piste pour voir les aperçus.' })); return; }
-    cs.clips.forEach(function (c) {
-      var k = key(c), f = frames[k], ps = cs.perShot[k] || {};
+    if (!cs.groups.length) { box.appendChild(H.el('p', { class: 'help small', text: 'Analysez les plans de la piste pour voir les aperçus (une image par rush).' })); return; }
+    cs.groups.forEach(function (g) {
+      var k = g.id, f = F.get(k), ps = cs.perRush[k] || {};
       var before = H.el('canvas'), after = H.el('canvas');
       var card = H.el('div', { class: 'gshot' + (cs.selected === k ? ' on' : '') + (ps.skip ? ' off' : ''), onclick: function (e) {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
         cs.selected = cs.selected === k ? null : k; renderShots();
-        B.call('OneSec_setPlayhead', { time: c.start + 0.1 }).catch(function () {});
+        B.call('OneSec_setPlayhead', { time: g.starts[0] + 0.1 }).catch(function () {});
       } });
-      var g = f && !ps.skip ? gradeFor(c) : null;
-      var capText = f ? (g ? 'expo ' + (g.params.exposure >= 0 ? '+' : '') + g.params.exposure + ' · temp ' + g.params.temperature + (g.protectSkin ? ' · peau' : '') : 'ignoré') : 'pas d\'image';
+      var gr = f && f.stats && !ps.skip ? gradeFor(g) : null;
+      var capText = !f || f.error ? 'pas d\'image' + (f && f.error ? ' : ' + f.error : '') : (gr ? 'expo ' + (gr.params.exposure >= 0 ? '+' : '') + gr.params.exposure + ' · temp ' + gr.params.temperature + (gr.protectSkin ? ' · peau' : '') : 'ignoré');
       card.appendChild(H.el('div', { class: 'ba' }, [before, after]));
-      card.appendChild(H.el('div', { class: 'cap' }, [H.el('b', { text: c.name }), H.el('span', { text: capText })]));
+      card.appendChild(H.el('div', { class: 'cap' }, [H.el('b', { text: g.name, title: g.name }), H.el('span', { text: g.starts.length + ' plan' + (g.starts.length > 1 ? 's' : '') + ' · ' + capText, title: capText })]));
       function slider(label, prop, min, max, step, def) {
         var inp = H.el('input', { type: 'range', min: min, max: max, step: step, value: ps[prop] == null ? def : ps[prop], oninput: function (e) {
-          cs.perShot[k] = Object.assign(cs.perShot[k] || {}, {}); cs.perShot[k][prop] = +e.target.value; cs.applied = false;
-          scheduleThumb(c, after); H.save();
+          cs.perRush[k] = Object.assign(cs.perRush[k] || {}, {}); cs.perRush[k][prop] = +e.target.value; cs.applied = false;
+          scheduleThumb(g, after); H.save();
         } });
         return H.el('label', {}, [H.el('span', { text: label, style: 'width:62px' }), inp]);
       }
@@ -170,27 +140,29 @@
         slider('Contraste', 'contrast', -1, 1, 0.1, 0),
         slider('Saturation', 'saturation', -1, 1, 0.1, 0),
         H.el('div', { class: 'row', style: 'margin:2px 0' }, [
-          H.el('button', { class: 'small', text: ps.skip ? 'Inclure ce plan' : 'Ne pas étalonner', onclick: function () { cs.perShot[k] = Object.assign(cs.perShot[k] || {}, { skip: !ps.skip }); cs.applied = false; renderShots(); H.save(); } }),
-          H.el('button', { class: 'small ghost', text: 'Réinitialiser', onclick: function () { delete cs.perShot[k]; renderShots(); H.save(); } })
+          H.el('button', { class: 'small', text: ps.skip ? 'Inclure ce rush' : 'Ne pas étalonner', onclick: function () { cs.perRush[k] = Object.assign(cs.perRush[k] || {}, { skip: !ps.skip }); cs.applied = false; renderShots(); H.save(); } }),
+          H.el('button', { class: 'small ghost', text: 'Réinitialiser', onclick: function () { delete cs.perRush[k]; renderShots(); H.save(); } })
         ])
       ]));
       box.appendChild(card);
-      if (f) { drawThumb(before, f.small, null); drawThumb(after, f.small, g); }
+      if (f && f.small) { drawThumb(before, f, null); drawThumb(after, f, gr); }
     });
   }
 
-  function drawThumb(cv, small, grade) {
-    var w = 150, h = Math.round(w * small.height / small.width);
+  /** Miniature de la zone utile (sans bandes noires), avec ou sans colo. */
+  function drawThumb(cv, f, grade) {
+    var small = f.small, b = f.box, bw = b.x1 - b.x0, bh = b.y1 - b.y0;
+    var w = 150, h = Math.max(40, Math.round(w * bh / bw));
     cv.width = w; cv.height = h;
     var tmp = document.createElement('canvas'); tmp.width = small.width; tmp.height = small.height;
     var data = new ImageData(new Uint8ClampedArray(small.data), small.width, small.height);
-    if (grade) C.previewGrade(data, grade);
+    if (grade) C.previewGrade(data, grade, b);
     tmp.getContext('2d').putImageData(data, 0, 0);
-    cv.getContext('2d').drawImage(tmp, 0, 0, w, h);
+    cv.getContext('2d').drawImage(tmp, b.x0, b.y0, bw, bh, 0, 0, w, h);
   }
-  function scheduleThumb(c, cv) {
+  function scheduleThumb(g, cv) {
     clearTimeout(thumbTimer);
-    thumbTimer = setTimeout(function () { var f = frames[key(c)]; if (f) drawThumb(cv, f.small, gradeFor(c)); }, 60);
+    thumbTimer = setTimeout(function () { var f = F.get(g.id); if (f && f.small) drawThumb(cv, f, gradeFor(g)); }, 60);
   }
   var allTimer = null;
   function scheduleAll() { clearTimeout(allTimer); allTimer = setTimeout(renderShots, 120); }
@@ -205,11 +177,11 @@
   function apply() {
     var cs = CS();
     var grades = [];
-    cs.clips.forEach(function (c) {
-      var ps = cs.perShot[key(c)] || {};
+    cs.groups.forEach(function (g) {
+      var ps = cs.perRush[g.id] || {};
       if (ps.skip) return;
-      var g = gradeFor(c);
-      if (g) grades.push({ start: c.start, params: g.params });
+      var gr = gradeFor(g);
+      if (gr) g.starts.forEach(function (st) { grades.push({ start: st, params: gr.params }); });
     });
     if (!grades.length) return H.toast('Aucun plan à étalonner.', 'err');
     H.busy(true, 'Application sur ' + grades.length + ' clips…');
@@ -252,7 +224,7 @@
 
   function bind() {
     H.$('btn-grade-analyze').addEventListener('click', analyzeShots);
-    H.$('grade-track').addEventListener('change', function (e) { CS().track = +e.target.value; CS().clips = []; frames = {}; render(); H.save(); });
+    H.$('grade-track').addEventListener('change', function (e) { CS().track = +e.target.value; CS().groups = []; render(); H.save(); });
     H.$('grade-range-only').addEventListener('change', function (e) { CS().rangeOnly = e.target.checked; H.save(); });
     H.$('ref-image').addEventListener('change', function (e) { if (e.target.files[0]) loadReference(e.target.files[0]); });
     function fine(id, set, evt) {
@@ -280,7 +252,7 @@
       H.run(B.call('OneSec_removeGrades', { videoTrack: trackIndex(), range: range }).then(function (r) { cs.applied = false; render(); H.save(); return r; }), function (r) { return r.removed + ' effet(s) retiré(s).'; });
     });
     H.$('btn-grade-diag').addEventListener('click', function () {
-      H.run(B.call('OneSec_listLumetriParams', { videoTrack: trackIndex(), clipIndex: (CS().clips[0] || {}).index || 0 }).then(function (list) {
+      H.run(B.call('OneSec_listLumetriParams', { videoTrack: trackIndex(), clipIndex: 0 }).then(function (list) {
         var rep = H.$('grade-report');
         rep.classList.remove('hidden');
         rep.innerHTML = '<b>Paramètres Lumetri vus par le script :</b><pre class="log">' + list.map(function (p) { return p.index + '\t' + H.esc(p.name) + '\t' + H.esc(JSON.stringify(p.value)); }).join('\n') + '</pre>';
@@ -294,5 +266,5 @@
     bind();
   }
 
-  root.OneSecColorUI = { init: init, render: render, frames: function () { return frames; } };
+  root.OneSecColorUI = { init: init, render: render };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

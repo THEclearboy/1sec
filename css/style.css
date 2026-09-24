@@ -160,3 +160,6 @@ details summary { cursor: pointer; margin: 14px 0 6px; font-weight: 600; color: 
 .gshot .tweak label { display: flex; align-items: center; gap: 4px; color: var(--muted); }
 .gshot .tweak input[type=range] { width: 80px; }
 .gshot .warn { color: var(--warn); }
+
+.frshot canvas { width: 100%; display: block; background: #000; }
+.frshot .tweak label span { width: 70px; }

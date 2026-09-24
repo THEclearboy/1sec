@@ -497,6 +497,7 @@ function OneSec_getTrackClips(s) {
       var c = track.clips[i], info = OneSec_trackItemInfo(c, 'video', a.videoTrack);
       if (a.range && (info.end <= a.range.start || info.start >= a.range.end)) continue;
       info.index = i;
+      info.media = OneSec_mediaInfo(c.projectItem);
       info.hasLumetri = false;
       try {
         for (var k = 0; k < c.components.numItems; k++) {
@@ -505,8 +506,21 @@ function OneSec_getTrackClips(s) {
       } catch (e) {}
       out.push(info);
     }
-    return OneSec_ok({ clips: out, fps: OneSec_fps(seq), sequence: seq.name });
+    return OneSec_ok({ clips: out, fps: OneSec_fps(seq), sequence: seq.name, width: seq.frameSizeHorizontal, height: seq.frameSizeVertical });
   } catch (e) { return OneSec_err(e); }
+}
+
+/** Dimensions du média (via les métadonnées projet « VideoInfo », ex. « 3840 x 2160 (1.0) »). */
+function OneSec_mediaInfo(pi) {
+  var info = { width: null, height: null, par: 1 };
+  if (!pi) return info;
+  try {
+    var xmp = pi.getProjectMetadata();
+    var m = /VideoInfo[^>]*>\s*([0-9]+)\s*x\s*([0-9]+)(?:\s*\(([0-9.]+)\))?/.exec(xmp);
+    if (m) { info.width = parseInt(m[1], 10); info.height = parseInt(m[2], 10); if (m[3]) info.par = parseFloat(m[3]); }
+  } catch (e) {}
+  try { var fi = pi.getFootageInterpretation(); if (fi && fi.pixelAspectRatio) info.par = fi.pixelAspectRatio; } catch (e2) {}
+  return info;
 }
 
 /**
@@ -518,33 +532,37 @@ function OneSec_exportFrames(s) {
     var a = OneSec_args(s), seq = OneSec_seq(), fps = OneSec_fps(seq);
     app.enableQE();
     var qeSeq = qe.project.getActiveSequence();
+    if (!qeSeq) throw new Error('QE : séquence active introuvable.');
     var folder = new Folder(a.dir);
-    if (!folder.exists) folder.create();
+    if (!folder.exists && !folder.create()) throw new Error('Impossible de créer le dossier ' + folder.fsName);
     var files = [], errors = [];
     for (var i = 0; i < a.times.length; i++) {
-      var path = a.dir + '/frame_' + i + '_' + Math.round(a.times[i] * 1000) + '.png';
-      var f = new File(path);
+      var f = new File(folder.fsName + '/frame_' + i + '_' + Math.round(a.times[i] * 1000) + '.png');
+      var path = f.fsName; // chemin natif (antislashs sous Windows)
       if (f.exists) f.remove();
       var ok = false, lastErr = '';
-      var tcs = [OneSec_timecode(a.times[i], fps), OneSec_timecode(a.times[i], fps).replace(/:(\d\d)$/, ';$1')];
+      var tc = OneSec_timecode(a.times[i], fps);
+      var tcs = [tc, tc.replace(/[:;](\d\d)$/, ';$1'), tc.replace(/[:;](\d\d)$/, ':$1')];
       for (var t = 0; t < tcs.length && !ok; t++) {
         try {
-          qeSeq.exportFramePNG(tcs[t], path);
+          var r = qeSeq.exportFramePNG(tcs[t], path);
           ok = new File(path).exists;
+          if (!ok) lastErr = 'exportFramePNG(' + tcs[t] + ') → ' + r + ' (fichier absent)';
         } catch (e) { lastErr = String(e); }
       }
       if (!ok) {
-        // Repli : déplace la tête de lecture puis exporte à la position courante
         try {
           seq.setPlayerPosition(OneSec_ticks(a.times[i]));
-          qeSeq.exportFramePNG(qeSeq.CTI.timecode, path);
+          var cti = qeSeq.CTI.timecode;
+          qeSeq.exportFramePNG(cti, path);
           ok = new File(path).exists;
-        } catch (e2) { lastErr = String(e2); }
+          if (!ok) lastErr += ' | CTI ' + cti + ' : fichier absent';
+        } catch (e2) { lastErr += ' | CTI : ' + e2; }
       }
       files.push(ok ? path : null);
       if (!ok) errors.push('Image ' + i + ' : ' + lastErr);
     }
-    return OneSec_ok({ files: files, errors: errors });
+    return OneSec_ok({ files: files, errors: errors, dir: folder.fsName });
   } catch (e) { return OneSec_err(e); }
 }
 
@@ -679,5 +697,99 @@ function OneSec_removeGrades(s) {
       }
     }
     return OneSec_ok({ removed: n });
+  } catch (e) { return OneSec_err(e); }
+}
+
+
+// ================================================================== CADRAGE
+
+var ONESEC_MOTION_NAMES = {
+  position: ['Position'],
+  scale: ['Scale', 'Échelle', 'Echelle'],
+  uniform: ['Uniform Scale', 'Échelle uniforme', 'Echelle uniforme']
+};
+function OneSec_findMotion(clip) {
+  for (var k = 0; k < clip.components.numItems; k++) {
+    var dn = clip.components[k].displayName;
+    if (/^(Motion|Trajectoire|Bewegung|Movimiento)$/i.test(dn)) return clip.components[k];
+  }
+  return clip.components.numItems > 1 ? clip.components[1] : null; // [0] = Opacité, [1] = Trajectoire habituellement
+}
+function OneSec_motionProp(comp, key, fallbackIndex) {
+  var names = ONESEC_MOTION_NAMES[key];
+  for (var i = 0; i < comp.properties.numItems; i++) {
+    for (var n = 0; n < names.length; n++) if (comp.properties[i].displayName === names[n]) return comp.properties[i];
+  }
+  return fallbackIndex != null && fallbackIndex < comp.properties.numItems ? comp.properties[fallbackIndex] : null;
+}
+
+/**
+ * Applique un cadrage aux clips.
+ * args: { videoTrack, items: [{ start, mode: 'fixed'|'auto', scale, x, y }] }
+ *  - fixed : Trajectoire › Échelle / Position
+ *  - auto  : effet « Recadrage automatique » (suivi du sujet par Premiere)
+ */
+function OneSec_applyFraming(s) {
+  try {
+    var a = OneSec_args(s), seq = OneSec_seq(), track = seq.videoTracks[a.videoTrack];
+    var report = { fixed: 0, auto: 0, autoFailed: 0, missing: 0, propFailed: 0 };
+    app.enableQE();
+    var qeSeq = qe.project.getActiveSequence();
+    var autoFx = null, autoNames = ['Auto Reframe', 'Recadrage automatique', 'Automatisch neu einrahmen', 'Reencuadre automático'];
+    for (var i = 0; i < a.items.length; i++) {
+      var it = a.items[i], found = OneSec_findTrackItemAt(track, it.start, null);
+      if (!found) { report.missing++; continue; }
+      var clip = found.item;
+      if (it.mode === 'auto') {
+        var done = false;
+        if (!autoFx) for (var n = 0; n < autoNames.length && !autoFx; n++) { try { autoFx = qe.project.getVideoEffectByName(autoNames[n]); } catch (e) {} }
+        if (autoFx) {
+          try {
+            var already = false;
+            for (var k = 0; k < clip.components.numItems; k++) if (/reframe|recadrage/i.test(clip.components[k].displayName)) already = true;
+            if (!already) { var qi = OneSec_qeItem(qeSeq.getVideoTrackAt(a.videoTrack), found.index); if (qi) qi.addVideoEffect(autoFx); }
+            done = true;
+          } catch (e1) {}
+        }
+        if (done) { report.auto++; continue; }
+        report.autoFailed++;
+        // repli : cadrage fixe
+      }
+      var motion = OneSec_findMotion(clip);
+      if (!motion) { report.propFailed++; continue; }
+      try {
+        var ps = OneSec_motionProp(motion, 'scale', 1);
+        if (ps) ps.setValue(it.scale, true);
+        var pp = OneSec_motionProp(motion, 'position', 0);
+        if (pp) pp.setValue([it.x, it.y], true);
+        report.fixed++;
+      } catch (e2) { report.propFailed++; }
+    }
+    return OneSec_ok(report);
+  } catch (e) { return OneSec_err(e); }
+}
+
+/** Remet Échelle 100 % / Position centrée et retire le recadrage automatique. args: { videoTrack, range? } */
+function OneSec_resetFraming(s) {
+  try {
+    var a = OneSec_args(s), seq = OneSec_seq(), track = seq.videoTracks[a.videoTrack], n = 0;
+    app.enableQE();
+    var qeTrack = qe.project.getActiveSequence().getVideoTrackAt(a.videoTrack);
+    var cx = seq.frameSizeHorizontal / 2, cy = seq.frameSizeVertical / 2;
+    for (var i = 0; i < track.clips.numItems; i++) {
+      var c = track.clips[i], st = OneSec_secs(c.start);
+      if (a.range && (OneSec_secs(c.end) <= a.range.start || st >= a.range.end)) continue;
+      var motion = OneSec_findMotion(c);
+      if (motion) {
+        try { OneSec_motionProp(motion, 'scale', 1).setValue(100, true); OneSec_motionProp(motion, 'position', 0).setValue([cx, cy], true); } catch (e) {}
+      }
+      var qi = OneSec_qeItem(qeTrack, i);
+      if (qi) for (var k = qi.numComponents - 1; k >= 0; k--) {
+        var comp = qi.getComponentAt(k);
+        if (comp && /reframe|recadrage/i.test(comp.name)) { try { comp.remove(); } catch (e2) {} }
+      }
+      n++;
+    }
+    return OneSec_ok({ reset: n });
   } catch (e) { return OneSec_err(e); }
 }

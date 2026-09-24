@@ -72,3 +72,29 @@ test('valeurs dans les plages Lumetri', () => {
     assert.ok(Math.abs(p.temperature) <= 100 && Math.abs(p.exposure) <= 5 && p.saturation2 >= 0 && p.saturation2 <= 200 && p.fadedFilm <= 100 && p.vignetteAmount >= -5);
   });
 });
+
+test('bandes noires ignorées et sujet trouvé', () => {
+  // image 90x160 noire avec une bande 16:9 au milieu, sujet (peau) à droite
+  const im = img(90, 160, (x, y) => {
+    if (y < 0.34 || y > 0.66) return [0, 0, 0];
+    if (Math.abs(x - 0.8) < 0.06 && Math.abs(y - 0.5) < 0.1) return [220, 160, 120];
+    return [40, 90, 140];
+  });
+  const box = C.contentBox(im);
+  assert.ok(box.y0 > 50 && box.y1 < 110 && box.x0 === 0, JSON.stringify(box));
+  const st = C.analyzeImage(im, 1);
+  assert.ok(st.p.p50 > 60, 'médiane sans bandes noires : ' + st.p.p50);
+  const sub = C.findSubject(im, box);
+  assert.ok(sub.x > 0.65, 'sujet x=' + sub.x);
+});
+
+test('cadrage 16:9 → 9:16 : remplit la hauteur et suit le sujet', () => {
+  const f = C.fitFraming(3840, 2160, 1080, 1920, { x: 0.8, y: 0.5 });
+  assert.ok(Math.abs(f.scale - 88.89) < 0.1, 'scale ' + f.scale);
+  assert.ok(f.x < 540, 'décalé vers la gauche pour montrer la droite : ' + f.x);
+  assert.ok(f.crop.x1 <= 1.0001 && f.crop.x0 >= 0);
+  const c = C.fitFraming(3840, 2160, 1080, 1920, { x: 0.5, y: 0.5 });
+  assert.strictEqual(c.x, 540); assert.strictEqual(c.y, 960);
+  const far = C.fitFraming(3840, 2160, 1080, 1920, { x: 1, y: 0.5 });
+  assert.ok(far.crop.x1 <= 1.0001, 'ne sort pas du média');
+});

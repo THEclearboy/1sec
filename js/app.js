@@ -29,7 +29,8 @@
       build: { videoTrack: null, clearTrack: true, muteRushAudio: true },
       lastBuild: null,
       selectedSection: null,
-      color: null
+      color: null,
+      framing: null
     };
   }
 
@@ -579,6 +580,7 @@
     renderBuild();
     drawTimeline();
     if (root.OneSecColorUI) root.OneSecColorUI.render();
+    if (root.OneSecFramingUI) root.OneSecFramingUI.render();
     document.querySelectorAll('#steps button').forEach(function (b) {
       var n = +b.getAttribute('data-step');
       b.classList.toggle('done', isDone(n) && n !== S.step);
@@ -700,7 +702,10 @@
   function start() {
     loadState();
     bind();
-    if (root.OneSecColorUI) root.OneSecColorUI.init({ state: function () { return S; }, save: saveSoon, toast: toast, busy: busy, run: run, el: el, $: $, fmt: fmt, esc: esc, musicRange: musicRange, timelineOffset: timelineOffset });
+    var helpers = { state: function () { return S; }, save: saveSoon, toast: toast, busy: busy, run: run, el: el, $: $, fmt: fmt, esc: esc, musicRange: musicRange, timelineOffset: timelineOffset };
+    if (root.OneSecFrames) root.OneSecFrames.init(helpers);
+    if (root.OneSecColorUI) root.OneSecColorUI.init(helpers);
+    if (root.OneSecFramingUI) root.OneSecFramingUI.init(helpers);
     checkConnection();
     loadBins();
     replan();

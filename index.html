@@ -143,6 +143,27 @@
         <button id="btn-clear-edit" class="ghost">Effacer le montage 1SEC</button>
       </div>
       <div id="build-report" class="summary hidden"></div>
+
+      <h3>Format <small>— adapter les rushes au format de la séquence (ex. 16:9 → vertical 9:16)</small></h3>
+      <div class="card">
+        <div class="kv"><span>Séquence</span><b id="fr-seq">–</b></div>
+        <div class="kv"><span>Méthode</span>
+          <select id="fr-mode">
+            <option value="subject">Cadrage 1SEC : remplir + centrer sur le sujet détecté</option>
+            <option value="center">Cadrage 1SEC : remplir + centré</option>
+            <option value="auto">Recadrage automatique Adobe (suivi du sujet, plus lent)</option>
+          </select></div>
+        <div class="kv"><span>Piste</span><select id="fr-track"></select>
+          <label class="check"><input type="checkbox" id="fr-range-only" checked> zone de la musique seulement</label></div>
+        <div class="row">
+          <button id="btn-fr-analyze" class="small">🔍 Analyser les plans</button>
+          <button id="btn-fr-apply" class="primary">⤢ Adapter le format</button>
+          <button id="btn-fr-reset" class="ghost small">Remettre à 100 % centré</button>
+        </div>
+        <p class="help small">Les plans analysés apparaissent ci-dessous avec le cadre visible : cliquez-en un pour déplacer le cadre à la main.</p>
+        <div id="fr-shots" class="grade-grid"></div>
+        <div id="fr-report" class="summary hidden"></div>
+      </div>
       <p class="help small">Astuce : pour des ralentis fluides, sélectionnez les plans ralentis et choisissez <i>Interpolation temporelle → Flux optique</i>. Modifiez ensuite les réglages à l'étape 3 et reconstruisez : la piste est remplacée.</p>
     </section>
 

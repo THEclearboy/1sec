@@ -75,17 +75,25 @@ de fois que nécessaire : la piste est remplacée.
 Pour des ralentis fluides : sélectionnez les plans ralentis dans Premiere,
 *Interpolation temporelle ▸ Flux optique*.
 
+#### Format (16:9 → vertical 9:16)
+Dans l'étape 4, bloc **Format** : la séquence (ex. 1080×1920) et les rushes
+(ex. 3840×2160) sont mesurés, puis chaque clip est mis à l'échelle pour
+remplir le cadre et centré sur le **sujet détecté** (contraste, peau,
+couleur) — ou centré, ou confié au **Recadrage automatique** d'Adobe (suivi du
+sujet, plus lent). Une vignette par rush montre le cadre visible ; cliquez pour
+le déplacer à la main. *Remettre à 100 % centré* annule.
+
 ### Étape 5 — Colo
 Une vraie colorimétrie plan par plan, pas un filtre :
-1. **Analyser les plans** : une image de chaque clip de la piste choisie est
-   exportée depuis Premiere et mesurée (histogramme, point noir / blanc,
+1. **Analyser les plans** : les plans sont regroupés par rush (même média) ;
+   une image par rush est exportée depuis Premiere et mesurée (histogramme, point noir / blanc,
    balance, contraste, dominantes ombres / hautes lumières, tons de peau, écrêtage).
 2. **Direction artistique** : un look (Naturel, Cinéma chaud, Teal & Orange,
    Froid / Nuit, Punchy sport, Vintage, Désaturé, Noir & blanc) **ou une image
    de référence** dont le rendu est extrait, puis des réglages fins (intensité,
    force du raccord, chaleur, contraste, saturation, exposition, teintes
    ombres / lumières, vignette, protection des peaux).
-3. **Aperçu avant / après** de chaque plan, avec réglage individuel (look,
+3. **Aperçu avant / après** de chaque rush, avec réglage individuel (look,
    exposition, chaleur, contraste, saturation) ou exclusion d'un plan.
 4. **Appliquer** : un effet *Lumetri Color* est ajouté à chaque clip et réglé
    paramètre par paramètre (correction primaire propre au plan pour le raccord,
@@ -122,5 +130,5 @@ Structure :
 - `js/audio-analysis.js` — tempo, temps, mesures, énergie, sections, moments forts (pur JS).
 - `js/edit-planner.js` — découpage rythmique, attribution des rushes, marqueurs.
 - `js/color-grade.js` — analyse d'image, looks, calcul de la colo par plan, aperçu.
-- `js/app.js` — interface par étapes ; `js/app-color.js` — étape colo ; `js/bridge.js` — pont Premiere / mode démo ; `js/boot.js` — rechargement à chaud.
+- `js/app.js` — interface par étapes ; `js/app-frames.js` — export/analyse des images par rush ; `js/app-color.js` — étape colo ; `js/app-framing.js` — format / cadrage ; `js/bridge.js` — pont Premiere / mode démo ; `js/boot.js` — rechargement à chaud.
 - `jsx/host.jsx` — côté Premiere (lecture des clips/marqueurs, pose des marqueurs, montage, vitesses).

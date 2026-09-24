@@ -43,10 +43,25 @@
 
   // ---------------------------------------------------------------- analyse
 
+  /** Zone utile de l'image : retire les bandes noires (letterbox / pillarbox). */
+  function contentBox(img) {
+    var d = img.data, w = img.width, h = img.height, thr = 12;
+    function rowDark(y) { var s = 0, n = 0; for (var x = 0; x < w; x += 2) { var i = (y * w + x) * 4; s += d[i] + d[i + 1] + d[i + 2]; n++; } return s / n / 3 < thr; }
+    function colDark(x) { var s = 0, n = 0; for (var y = 0; y < h; y += 2) { var i = (y * w + x) * 4; s += d[i] + d[i + 1] + d[i + 2]; n++; } return s / n / 3 < thr; }
+    var y0 = 0, y1 = h, x0 = 0, x1 = w;
+    while (y0 < h - 8 && rowDark(y0)) y0++;
+    while (y1 > y0 + 8 && rowDark(y1 - 1)) y1--;
+    while (x0 < w - 8 && colDark(x0)) x0++;
+    while (x1 > x0 + 8 && colDark(x1 - 1)) x1--;
+    if ((y1 - y0) * (x1 - x0) < w * h * 0.05) return { x0: 0, y0: 0, x1: w, y1: h };
+    return { x0: x0, y0: y0, x1: x1, y1: y1 };
+  }
+
   /** Statistiques d'une image. step = sous-échantillonnage des pixels. */
-  function analyzeImage(img, step) {
+  function analyzeImage(img, step, box) {
     step = step || 2;
     var d = img.data, w = img.width, h = img.height;
+    box = box || contentBox(img);
     var hist = new Float64Array(256);
     var n = 0, sr = 0, sg = 0, sb = 0, sSat = 0, sLum = 0;
     var shR = 0, shG = 0, shB = 0, shN = 0, hiR = 0, hiG = 0, hiB = 0, hiN = 0;
@@ -54,8 +69,8 @@
     var skinN = 0, skinH = 0, skinS = 0;
     var clipB = 0, clipW = 0;
     var hueBins = new Float64Array(12);
-    for (var y = 0; y < h; y += step) {
-      for (var x = 0; x < w; x += step) {
+    for (var y = box.y0; y < box.y1; y += step) {
+      for (var x = box.x0; x < box.x1; x += step) {
         var i = (y * w + x) * 4, r = d[i], g = d[i + 1], b = d[i + 2];
         var L = luma(r, g, b);
         hist[Math.round(L)]++;
@@ -89,7 +104,7 @@
     var dominant = 0;
     for (var k = 1; k < 12; k++) if (hueBins[k] > hueBins[dominant]) dominant = k;
     return {
-      width: w, height: h,
+      width: w, height: h, box: box,
       mean: { r: mr, g: mg, b: mb, luma: sLum / n },
       p: p,
       contrast: (p.p95 - p.p5) / 255,
@@ -246,8 +261,9 @@
    * Simulation approximative de Lumetri sur une ImageData (modifiée en place).
    * Suffisant pour juger la direction : pas une reproduction exacte de Premiere.
    */
-  function previewGrade(img, grade) {
+  function previewGrade(img, grade, box) {
     var p = grade.params, t = grade.toning, d = img.data, w = img.width, h = img.height;
+    box = box || { x0: 0, y0: 0, x1: w, y1: h };
     var gainExp = Math.pow(2, p.exposure);
     var temp = p.temperature / 100, tint = p.tint / 100;
     var wbR = 1 + temp * 0.35 - tint * 0.08, wbG = 1 + tint * 0.2, wbB = 1 - temp * 0.35 - tint * 0.08;
@@ -258,10 +274,10 @@
     var vigAmt = -p.vignetteAmount / 5, feather = p.vignetteFeather / 100;
     var shRGB = t.shadowHue != null ? rgb2hsvInv(t.shadowHue, 1, 1) : [1, 1, 1];
     var hiRGB = t.highlightHue != null ? rgb2hsvInv(t.highlightHue, 1, 1) : [1, 1, 1];
-    var cx = w / 2, cy = h / 2, rad = Math.sqrt(cx * cx + cy * cy);
-    for (var y = 0; y < h; y++) {
+    var cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2, rad = Math.sqrt(Math.pow((box.x1 - box.x0) / 2, 2) + Math.pow((box.y1 - box.y0) / 2, 2));
+    for (var y = box.y0; y < box.y1; y++) {
       var vy = (y - cy) / rad;
-      for (var x = 0; x < w; x++) {
+      for (var x = box.x0; x < box.x1; x++) {
         var i = (y * w + x) * 4;
         var r = d[i] / 255 * wbR, g = d[i + 1] / 255 * wbG, b = d[i + 2] / 255 * wbB;
         // noirs / blancs (points) et contraste (courbe en S autour de 0.5)
@@ -300,8 +316,71 @@
   }
   function smooth(t) { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); }
 
+  // ---------------------------------------------------------------- sujet
+
+  /**
+   * Position probable du sujet (0..1 en x et y, dans la zone utile) :
+   * carte d'intérêt = contraste local + peau + saturation, pondérée vers le centre.
+   */
+  function findSubject(img, box) {
+    box = box || contentBox(img);
+    var d = img.data, w = img.width;
+    var bw = box.x1 - box.x0, bh = box.y1 - box.y0;
+    var cols = new Float64Array(bw), rows = new Float64Array(bh), total = 0;
+    for (var y = box.y0 + 1; y < box.y1 - 1; y += 2) {
+      for (var x = box.x0 + 1; x < box.x1 - 1; x += 2) {
+        var i = (y * w + x) * 4, r = d[i], g = d[i + 1], b = d[i + 2];
+        var L = luma(r, g, b);
+        var Lr = luma(d[i + 8], d[i + 9], d[i + 10]), Ld = luma(d[i + w * 8], d[i + w * 8 + 1], d[i + w * 8 + 2]);
+        var grad = Math.abs(L - Lr) + Math.abs(L - Ld);
+        var hsv = rgb2hsv(r / 255, g / 255, b / 255);
+        var v = grad / 255 + hsv.s * 0.5 + (isSkin(r, g, b) ? 1.2 : 0);
+        var cxn = ((x - box.x0) / bw - 0.5) * 2, cyn = ((y - box.y0) / bh - 0.5) * 2;
+        v *= 1 - 0.35 * (cxn * cxn + cyn * cyn) / 2; // léger a priori centré
+        cols[x - box.x0] += v; rows[y - box.y0] += v; total += v;
+      }
+    }
+    var sm = movingAvg(cols, Math.max(3, Math.round(bw * 0.12)));
+    var smr = movingAvg(rows, Math.max(3, Math.round(bh * 0.12)));
+    var bx = 0, by = 0;
+    for (var k = 1; k < bw; k++) if (sm[k] > sm[bx]) bx = k;
+    for (k = 1; k < bh; k++) if (smr[k] > smr[by]) by = k;
+    var peak = sm[bx], mean = total / bw;
+    return { x: bx / bw, y: by / bh, confidence: clamp((peak / (mean || 1) - 1) / 1.5, 0, 1) };
+  }
+  function movingAvg(a, win) {
+    var out = new Float64Array(a.length), half = Math.floor(win / 2);
+    for (var i = 0; i < a.length; i++) {
+      var s = 0, n = 0;
+      for (var k = -half; k <= half; k++) { var j = i + k; if (j >= 0 && j < a.length) { s += a[j]; n++; } }
+      out[i] = s / n;
+    }
+    return out;
+  }
+
+  /**
+   * Cadrage fixe d'un média (mw×mh) dans une séquence (sw×sh) en remplissant le cadre.
+   * subject : { x, y } 0..1 ; retourne { scale (%), x, y (px séquence), crop: fenêtre visible dans le média (0..1) }
+   */
+  function fitFraming(mw, mh, sw, sh, subject, bias) {
+    subject = subject || { x: 0.5, y: 0.5 };
+    bias = bias || { x: 0, y: 0 };
+    var scale = Math.max(sw / mw, sh / mh);
+    var vw = mw * scale, vh = mh * scale; // taille du média une fois mis à l'échelle
+    var sx = clamp(subject.x + bias.x * 0.5, 0, 1), sy = clamp(subject.y + bias.y * 0.5, 0, 1);
+    var maxDx = (vw - sw) / 2, maxDy = (vh - sh) / 2;
+    var dx = clamp((0.5 - sx) * vw, -maxDx, maxDx), dy = clamp((0.5 - sy) * vh, -maxDy, maxDy);
+    var x = sw / 2 + dx, y = sh / 2 + dy;
+    var cropX0 = (0.5 - 0.5 * sw / vw) - dx / vw, cropY0 = (0.5 - 0.5 * sh / vh) - dy / vh;
+    return { scale: Math.round(scale * 10000) / 100, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10,
+      crop: { x0: cropX0, y0: cropY0, x1: cropX0 + sw / vw, y1: cropY0 + sh / vh } };
+  }
+
   return {
     analyzeImage: analyzeImage,
+    contentBox: contentBox,
+    findSubject: findSubject,
+    fitFraming: fitFraming,
     targetFromReference: targetFromReference,
     gradeShot: gradeShot,
     previewGrade: previewGrade,
