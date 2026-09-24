@@ -10,7 +10,7 @@
   function S() { return H.state(); }
   function FS() {
     var s = S();
-    if (!s.framing) s.framing = { mode: 'subject', track: null, rangeOnly: true, groups: [], seq: null, perRush: {}, selected: null };
+    if (!s.framing) s.framing = { mode: 'subject', track: null, rangeOnly: true, groups: [], seq: null, perRush: {}, selected: null, manualMedia: null };
     if (!Array.isArray(s.framing.groups)) s.framing.groups = [];
     if (!s.framing.perRush) s.framing.perRush = {};
     return s.framing;
@@ -32,7 +32,7 @@
 
   function framingFor(g) {
     var fs = FS(), f = F.get(g.id), ps = fs.perRush[g.id] || {};
-    var m = g.media || {};
+    var m = (g.media && g.media.width) ? g.media : (fs.manualMedia || {});
     if (!m.width || !fs.seq || !fs.seq.width) return null;
     var subject = fs.mode === 'subject' && f && f.subject && f.subject.confidence > 0.15 ? f.subject : { x: 0.5, y: 0.5 };
     return C.fitFraming(m.width * (m.par || 1), m.height, fs.seq.width, fs.seq.height, subject, { x: ps.x || 0, y: ps.y || 0 });
@@ -128,6 +128,10 @@
     sel.value = track();
     H.$('fr-range-only').checked = fs.rangeOnly; H.$('fr-range-only').disabled = !s.music;
     H.$('fr-seq').textContent = fs.seq && fs.seq.width ? fs.seq.width + '×' + fs.seq.height + (fs.seq.height > fs.seq.width ? ' (vertical)' : ' (horizontal)') : 'analysez les plans';
+    var unknown = fs.groups.filter(function (g) { return !(g.media && g.media.width); }).length;
+    var mm = H.$('fr-media'), mmRow = H.$('fr-media-row');
+    mmRow.classList.toggle('hidden', !fs.groups.length || !unknown);
+    mm.value = fs.manualMedia ? fs.manualMedia.width + 'x' + fs.manualMedia.height : '';
     H.$('btn-fr-apply').disabled = !fs.groups.length;
     renderShots();
   }
@@ -137,6 +141,11 @@
     H.$('fr-track').addEventListener('change', function (e) { FS().track = +e.target.value; FS().groups = []; render(); H.save(); });
     H.$('fr-range-only').addEventListener('change', function (e) { FS().rangeOnly = e.target.checked; H.save(); });
     H.$('btn-fr-analyze').addEventListener('click', analyze);
+    H.$('fr-media').addEventListener('change', function (e) {
+      var v = e.target.value.split('x');
+      FS().manualMedia = v.length === 2 ? { width: +v[0], height: +v[1], par: 1 } : null;
+      render(); H.save();
+    });
     H.$('btn-fr-apply').addEventListener('click', function () {
       if (!FS().groups.length) analyze().then(apply); else apply();
     });

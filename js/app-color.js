@@ -261,6 +261,9 @@
         var rep = H.$('grade-report');
         rep.classList.remove('hidden');
         rep.innerHTML = '<b>Paramètres Lumetri vus par le script :</b><pre class="log">' + list.map(function (p) { return p.index + '\t' + H.esc(p.name) + '\t' + H.esc(JSON.stringify(p.value)); }).join('\n') + '</pre>';
+        return B.call('OneSec_diagFrames', { dir: B.tempDir(), videoTrack: trackIndex() }).then(function (d) {
+          rep.innerHTML += '<b>Export des images :</b><pre class="log">' + H.esc(JSON.stringify(d, null, 1)) + '</pre>';
+        });
       }));
     });
   }

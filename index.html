@@ -157,6 +157,19 @@
           </select></div>
         <div class="kv"><span>Piste</span><select id="fr-track"></select>
           <label class="check"><input type="checkbox" id="fr-range-only" checked> zone de la musique seulement</label></div>
+        <div class="kv hidden" id="fr-media-row"><span>Résolution des rushes</span>
+          <select id="fr-media">
+            <option value="">Inconnue — choisissez</option>
+            <option value="3840x2160">4K 16:9 (3840×2160)</option>
+            <option value="4096x2160">4K DCI (4096×2160)</option>
+            <option value="2688x1512">2.7K 16:9 (2688×1512)</option>
+            <option value="1920x1080">1080p 16:9 (1920×1080)</option>
+            <option value="4096x3072">4K 4:3 (4096×3072)</option>
+            <option value="2688x2016">2.7K 4:3 (2688×2016)</option>
+            <option value="1440x1080">1080p 4:3 (1440×1080)</option>
+            <option value="2160x2160">1:1 (2160×2160)</option>
+          </select>
+          <small class="muted">Premiere n'a pas indiqué la taille de certains rushes.</small></div>
         <div class="row">
           <button id="btn-fr-analyze" class="small">🔍 Analyser les plans</button>
           <button id="btn-fr-apply" class="primary">⤢ Adapter le format</button>

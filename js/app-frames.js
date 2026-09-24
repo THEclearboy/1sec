@@ -33,8 +33,14 @@
       var times = groups.map(function (g) { return g.rep.start + (g.rep.end - g.rep.start) * 0.5; });
       return B.call('OneSec_exportFrames', { times: times, dir: B.tempDir() });
     }).then(function (r) {
+      H.busy(true, 'Premiere écrit les images…');
+      return waitForFiles(r.dir, r.files.length).then(function (found) {
+        return { files: r.files.map(function (f, i) { return found[i] || null; }), errors: r.errors, dir: r.dir };
+      });
+    }).then(function (r) {
       H.busy(true, 'Analyse des images…');
       var errors = r.errors || [], missing = 0;
+      if (r.files.some(function (f) { return !f; })) errors.push('image non écrite par Premiere dans ' + r.dir + ' (délai dépassé)');
       return groups.reduce(function (p, g, i) {
         return p.then(function () {
           if (!r.files[i]) { missing++; cache[g.id] = { error: errors[0] ? errors[0].replace(/^Image \d+ : /, '') : 'export impossible' }; return; }
@@ -54,6 +60,32 @@
         return { clips: clips, groups: groups, seq: seq, missing: missing, errors: errors };
       });
     }).catch(function (e) { H.busy(false); throw e; });
+  }
+
+  /** Attend l'apparition des fichiers frame_<i>_*.png (export asynchrone de Premiere). */
+  function waitForFiles(dir, count) {
+    var Boot = root.OneSecBoot;
+    if (!Boot.nodeRequire) return B.call('OneSec_waitFrames', { dir: dir, count: count, timeoutMs: 12000 }).then(function (r) { return r.files; });
+    var fs = Boot.nodeRequire('fs'), path = Boot.nodeRequire('path');
+    var deadline = Date.now() + 15000;
+    return new Promise(function (resolve) {
+      (function poll() {
+        var found = [], missing = 0, names = [];
+        try { names = fs.readdirSync(dir); } catch (e) {}
+        for (var i = 0; i < count; i++) {
+          var hit = null;
+          for (var k = 0; k < names.length; k++) {
+            if (names[k].indexOf('frame_' + i + '_') === 0) {
+              var full = path.join(dir, names[k]);
+              try { if (fs.statSync(full).size > 0) { hit = full; break; } } catch (e2) {}
+            }
+          }
+          found.push(hit); if (!hit) missing++;
+        }
+        if (!missing || Date.now() > deadline) return resolve(found);
+        setTimeout(poll, 300);
+      })();
+    });
   }
 
   function get(id) { return cache[id] || null; }

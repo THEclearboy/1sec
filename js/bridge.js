@@ -115,14 +115,17 @@
         g.restore();
         return c.toDataURL('image/png');
       });
-      return { files: files, errors: [] };
+      this._frames = files;
+      return { files: files, errors: [], dir: 'demo' };
     },
+    OneSec_waitFrames: function (a) { return { files: this._frames || [] }; },
     OneSec_applyGrades: function (a) { return { applied: a.grades.length, noLumetri: 0, failedParams: {}, missing: 0 }; },
     OneSec_removeGrades: function () { return { removed: 0 }; },
     OneSec_applyFraming: function (a) { return { fixed: a.items.filter(function (i) { return i.mode !== 'auto'; }).length, auto: a.items.filter(function (i) { return i.mode === 'auto'; }).length, autoFailed: 0, missing: 0, propFailed: 0 }; },
     OneSec_resetFraming: function () { return { reset: 6 }; },
     OneSec_applyEffects: function (a) { var r = { motion: 0, transitions: 0, pulse: 0, missing: 0, failed: {}, transitionMissing: [] }; a.ops.forEach(function (o) { if (o.type === 'transition') r.transitions++; else if (o.type === 'pulse') r.pulse++; else r.motion++; }); return r; },
     OneSec_clearEffects: function () { return { cleared: 6, note: '' }; },
+    OneSec_diagFrames: function () { return { dir: 'demo', files: [] }; },
     OneSec_listLumetriParams: function () { return [{ index: 0, name: 'Temperature', value: 0 }, { index: 1, name: 'Tint', value: 0 }]; }
   };
 
