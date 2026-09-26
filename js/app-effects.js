@@ -60,6 +60,7 @@
         (r.missing ? '<div class="warn">⚠ ' + r.missing + ' plan(s) introuvable(s) sur la piste : reconstruisez le montage puis ré-appliquez.</div>' : '') +
         (r.transitionMissing && r.transitionMissing.length ? '<div class="warn">⚠ Transitions introuvables dans Premiere : ' + r.transitionMissing.join(', ') + ' (nom localisé ? dites-moi la langue de Premiere).</div>' : '') +
         (failed.length ? '<div class="warn">⚠ Échecs : ' + failed.map(function (k) { return H.esc(k) + ' ×' + r.failed[k]; }).join(', ') + '</div>' : '') +
+        ((r.errors || []).length ? '<pre class="log">' + r.errors.map(H.esc).join('\n') + '</pre>' : '') +
         '<div class="muted">Vérifiez un punch-in dans Premiere : s\'il tombe au mauvais endroit, changez « Temps des images clés » (réglages avancés) et ré-appliquez.</div>';
       render();
       return r;

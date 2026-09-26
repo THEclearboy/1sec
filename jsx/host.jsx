@@ -883,14 +883,34 @@ function OneSec_keyTime(clip, tLocal, mode) {
   return (mode === 'sequence' ? OneSec_secs(clip.start) : OneSec_secs(clip.inPoint)) + tLocal;
 }
 
+function OneSec_time(seconds) {
+  var t = new Time();
+  t.seconds = seconds;
+  return t;
+}
+
+/**
+ * Pose des images clés. L'API attend des objets Time ; certaines versions acceptent
+ * aussi des secondes : on essaie Time d'abord, puis le nombre.
+ */
 function OneSec_setKeys(prop, clip, keys, valueOf, mode) {
   prop.setTimeVarying(true);
+  var lastErr = null, placed = 0;
   for (var i = 0; i < keys.length; i++) {
-    var t = OneSec_keyTime(clip, keys[i].t, mode);
-    try { prop.addKey(t); } catch (e) {}
-    prop.setValueAtKey(t, valueOf(keys[i]), true);
-    try { prop.setInterpolationTypeAtKey(t, 5, true); } catch (e2) {} // 5 = Bézier (lisse) si supporté
+    var secs = OneSec_keyTime(clip, keys[i].t, mode), val = valueOf(keys[i]), ok = false;
+    var variants = [OneSec_time(secs), secs];
+    for (var v = 0; v < variants.length && !ok; v++) {
+      try {
+        try { prop.addKey(variants[v]); } catch (eA) {}
+        prop.setValueAtKey(variants[v], val, true);
+        ok = true;
+        try { prop.setInterpolationTypeAtKey(variants[v], 1, true); } catch (eI) {}
+      } catch (e) { lastErr = e; }
+    }
+    if (ok) placed++;
   }
+  if (!placed) throw new Error('images clés refusées : ' + lastErr);
+  return placed;
 }
 
 var ONESEC_TRANSITIONS = {
@@ -928,9 +948,9 @@ function OneSec_applyEffects(s) {
     app.enableQE();
     var qeTrack = qe.project.getActiveSequence().getVideoTrackAt(a.videoTrack);
     var cx = seq.frameSizeHorizontal / 2, cy = seq.frameSizeVertical / 2;
-    var report = { motion: 0, transitions: 0, pulse: 0, missing: 0, failed: {}, transitionMissing: [] };
+    var report = { motion: 0, transitions: 0, pulse: 0, missing: 0, failed: {}, transitionMissing: [], errors: [] };
     OneSec_transitionCache = {};
-    function fail(k) { report.failed[k] = (report.failed[k] || 0) + 1; }
+    function fail(k, e) { report.failed[k] = (report.failed[k] || 0) + 1; if (e && report.errors.length < 4) report.errors.push(k + ' : ' + e); }
     for (var i = 0; i < a.ops.length; i++) {
       var op = a.ops[i], found = OneSec_findTrackItemAt(track, op.start, null);
       if (!found) { report.missing++; continue; }
@@ -963,7 +983,7 @@ function OneSec_applyEffects(s) {
           OneSec_setKeys(pe, clip, op.keys, function (k) { return baseE + k.exposure; }, mode);
           report.pulse++;
         }
-      } catch (e) { fail(op.type + ':' + e); }
+      } catch (e) { fail(op.type, e); }
     }
     return OneSec_ok(report);
   } catch (e) { return OneSec_err(e); }
