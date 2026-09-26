@@ -34,14 +34,18 @@
   }
 
   /** Recharge le code ExtendScript (host.jsx) dans Premiere. */
+  var hostStatus = { ok: null, error: null, file: null };
   function loadHost() {
     if (!isCEP) return Promise.resolve(true);
     var file = (root + '/jsx/host.jsx').replace(/\\/g, '/');
-    return evalScript('try{$.evalFile("' + file.replace(/"/g, '\\"') + '");"ok"}catch(e){"ERR "+e.message+" ligne "+e.line}')
-      .then(function (r) {
-        if (r !== 'ok') console.error('[1SEC] host.jsx :', r);
-        return r === 'ok';
-      });
+    hostStatus.file = file;
+    var code = 'try{var f=new File("' + file.replace(/"/g, '\\"') + '");if(!f.exists){"ERR fichier introuvable : "+f.fsName}else{f.encoding="UTF-8";$.evalFile(f);(typeof OneSec_ping==="function")?"ok":"ERR host.jsx évalué mais OneSec_ping absent"}}catch(e){"ERR "+e.message+" (ligne "+e.line+")"}';
+    return evalScript(code).then(function (r) {
+      hostStatus.ok = r === 'ok';
+      hostStatus.error = r === 'ok' ? null : String(r);
+      if (r !== 'ok') console.error('[1SEC] host.jsx :', r);
+      return r === 'ok';
+    });
   }
 
   function loadScript(src) {
@@ -146,6 +150,7 @@
 
   window.OneSecBoot = {
     checkUpdate: checkUpdate,
+    hostStatus: hostStatus,
     isCEP: isCEP,
     root: root,
     nodeRequire: nodeRequire,

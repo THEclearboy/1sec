@@ -725,7 +725,7 @@ function OneSec_applyEffects(s) {
       try {
         if (op.type === 'transition') {
           var fx = OneSec_transition(op.name);
-          if (!fx) { if (report.transitionMissing.indexOf(op.name) < 0) report.transitionMissing.push(op.name); fail(op.name); continue; }
+          if (!fx) { var known = false; for (var tm = 0; tm < report.transitionMissing.length; tm++) if (report.transitionMissing[tm] === op.name) known = true; if (!known) report.transitionMissing.push(op.name); fail(op.name); continue; }
           var qi = OneSec_qeItem(qeTrack, found.index);
           if (qi && OneSec_addTransition(qi, fx, op.position !== 'end', op.duration, fps)) report.transitions++; else fail(op.name);
         } else if (op.type === 'punch' || op.type === 'kenburns') {

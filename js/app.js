@@ -714,6 +714,11 @@
       $('demo-file').classList.remove('hidden');
       return;
     }
+    if (Boot.hostStatus && Boot.hostStatus.ok === false) {
+      st.className = 'status err'; st.textContent = 'Script Premiere en erreur'; st.title = Boot.hostStatus.error;
+      toast('host.jsx : ' + Boot.hostStatus.error, 'err');
+      return;
+    }
     B.call('OneSec_ping').then(function (r) {
       st.className = 'status ok';
       st.textContent = r.sequence || 'Aucune séquence';

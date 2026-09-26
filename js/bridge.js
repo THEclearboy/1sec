@@ -7,14 +7,23 @@
   'use strict';
   var Boot = root.OneSecBoot || { isCEP: false };
 
-  function call(fn, args) {
+  function call(fn, args, retried) {
     if (!Boot.isCEP) return Demo.call(fn, args);
     var code = fn + '(' + (args === undefined ? '' : '"' + encodeURIComponent(JSON.stringify(args)) + '"') + ')';
     return Boot.evalScript(code).then(function (r) {
       var res;
       try { res = JSON.parse(r); } catch (e) {
-        if (/EvalScript error/i.test(r)) throw new Error('Script Premiere non chargé. Cliquez sur ⟳ pour recharger le plugin.');
-        throw new Error('Réponse inattendue de Premiere : ' + r);
+        if (/EvalScript error/i.test(r)) {
+          if (!retried) {
+            // Le script Premiere n'est peut-être pas chargé : on le recharge et on réessaie une fois.
+            return Boot.loadHost().then(function (ok) {
+              if (ok) return call(fn, args, true);
+              throw new Error('Script Premiere non chargé : ' + (Boot.hostStatus.error || 'erreur inconnue') + ' — fichier ' + Boot.hostStatus.file);
+            });
+          }
+          throw new Error('Erreur dans le script Premiere pendant ' + fn + ' (' + (Boot.hostStatus.error || 'exception non interceptée') + '). Cliquez ⟳ ; si ça persiste, envoyez ce message.');
+        }
+        throw new Error('Réponse inattendue de Premiere : ' + String(r).slice(0, 200));
       }
       if (!res.ok) throw new Error(res.error);
       return res.data;
