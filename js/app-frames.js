@@ -59,7 +59,23 @@
         H.busy(false);
         return { clips: clips, groups: groups, seq: seq, missing: missing, errors: errors };
       });
-    }).catch(function (e) { H.busy(false); throw e; });
+    }).catch(function (e) {
+      H.busy(false);
+      var tail = readLogTail();
+      if (tail) e.message += '\n— journal Premiere —\n' + tail;
+      throw e;
+    });
+  }
+
+  /** Dernières lignes du journal écrit par host.jsx pendant l'export (utile quand Premiere plante en interne). */
+  function readLogTail() {
+    var Boot = root.OneSecBoot;
+    if (!Boot.nodeRequire) return '';
+    try {
+      var fs = Boot.nodeRequire('fs'), path = Boot.nodeRequire('path');
+      var txt = fs.readFileSync(path.join(B.tempDir(), 'onesec-log.txt'), 'utf8');
+      return txt.trim().split('\n').slice(-4).join('\n');
+    } catch (e) { return ''; }
   }
 
   /** Attend l'apparition des fichiers frame_<i>_*.png (export asynchrone de Premiere). */

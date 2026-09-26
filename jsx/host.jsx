@@ -542,6 +542,213 @@ function OneSec_mediaInfo(pi) {
   return info;
 }
 
+var OneSec_logFile = null;
+function OneSec_log(msg) {
+  try {
+    if (!OneSec_logFile) return;
+    var f = new File(OneSec_logFile);
+    f.encoding = 'UTF-8';
+    if (f.open('a')) { f.writeln(new Date().toTimeString().slice(0, 8) + ' ' + msg); f.close(); }
+  } catch (e) {}
+}
+
+/**
+ * Exporte une image PNG de la séquence pour chaque temps demandé.
+ * L'écriture par Premiere est asynchrone : le panneau attend l'apparition des fichiers.
+ * args: { times: [seconds], dir }
+ */
+function OneSec_exportFrames(s) {
+  try {
+    var a = OneSec_args(s), seq = OneSec_seq(), fps = OneSec_fps(seq);
+    var folder = new Folder(a.dir);
+    if (!folder.exists && !folder.create()) throw new Error('Impossible de créer le dossier ' + folder.fsName);
+    OneSec_logFile = folder.fsName + '/onesec-log.txt';
+    try { var lf = new File(OneSec_logFile); if (lf.exists) lf.remove(); } catch (eL) {}
+    OneSec_log('exportFrames : ' + a.times.length + ' images, sequence ' + seq.name + ' fps ' + fps);
+    app.enableQE();
+    var qeSeq = qe.project.getActiveSequence();
+    if (!qeSeq) throw new Error('QE : séquence active introuvable.');
+    var seqEnd = 0;
+    try { seqEnd = OneSec_secs(seq.end); } catch (eE) {}
+    var old = folder.getFiles('frame_*') || [];
+    for (var o = 0; o < old.length; o++) { try { old[o].remove(); } catch (eo) {} }
+    var files = [], errors = [];
+    for (var i = 0; i < a.times.length; i++) {
+      var t = Number(a.times[i]);
+      if (!isFinite(t) || t < 0) { files.push(null); errors.push('Image ' + i + ' : temps invalide ' + a.times[i]); continue; }
+      if (seqEnd > 0 && t >= seqEnd) t = Math.max(0, seqEnd - 1 / fps);
+      var f = new File(folder.fsName + '/frame_' + i + '_' + Math.round(t * 1000) + '.png');
+      var path = f.fsName; // chemin natif (antislashs sous Windows)
+      var tc = OneSec_timecode(t, fps), ok = false, lastErr = '';
+      OneSec_log('image ' + i + ' t=' + t + ' tc=' + tc + ' -> ' + path);
+      try { qeSeq.exportFramePNG(tc, path); ok = true; } catch (e) { lastErr = String(e); OneSec_log('  echec : ' + lastErr); }
+      files.push(ok ? path : null);
+      if (!ok) errors.push('Image ' + i + ' : ' + lastErr);
+    }
+    OneSec_log('exportFrames termine');
+    return OneSec_ok({ files: files, errors: errors, dir: folder.fsName, log: OneSec_logFile });
+  } catch (e) { OneSec_log('exception : ' + e); return OneSec_err(e); }
+}
+
+/** Attend (au plus timeoutMs) que les images exportées existent. args: { dir, count, timeoutMs } */
+function OneSec_waitFrames(s) {
+  try {
+    var a = OneSec_args(s), folder = new Folder(a.dir), deadline = new Date().getTime() + (a.timeoutMs || 8000);
+    var found = [];
+    while (true) {
+      found = [];
+      var all = folder.getFiles('frame_*') || [], missing = 0;
+      for (var i = 0; i < a.count; i++) {
+        var hit = null;
+        for (var k = 0; k < all.length; k++) {
+          var nm = decodeURI(all[k].name);
+          if (nm.indexOf('frame_' + i + '_') === 0 && all[k].length > 0) { hit = all[k].fsName; break; }
+        }
+        found.push(hit);
+        if (!hit) missing++;
+      }
+      if (!missing || new Date().getTime() > deadline) break;
+      $.sleep(250);
+    }
+    return OneSec_ok({ files: found });
+  } catch (e) { return OneSec_err(e); }
+}
+
+function OneSec_findLumetri(clip) {
+  for (var k = 0; k < clip.components.numItems; k++) {
+    if (/lumetri/i.test(clip.components[k].displayName)) return clip.components[k];
+  }
+  return null;
+}
+
+/** Liste les paramètres Lumetri d'un clip (diagnostic). args: { videoTrack, clipIndex } */
+function OneSec_listLumetriParams(s) {
+  try {
+    var a = OneSec_args(s), seq = OneSec_seq();
+    var clip = seq.videoTracks[a.videoTrack].clips[a.clipIndex || 0];
+    OneSec_ensureLumetri(seq, a.videoTrack, clip);
+    var comp = OneSec_findLumetri(clip);
+    if (!comp) throw new Error('Lumetri Color absent du clip.');
+    var out = [];
+    for (var i = 0; i < comp.properties.numItems; i++) {
+      var p = comp.properties[i], v = null;
+      try { v = p.getValue(); } catch (e) { v = '?'; }
+      out.push({ index: i, name: p.displayName, value: v });
+    }
+    return OneSec_ok(out);
+  } catch (e) { return OneSec_err(e); }
+}
+
+function OneSec_ensureLumetri(seq, trackIndex, clip) {
+  if (OneSec_findLumetri(clip)) return true;
+  app.enableQE();
+  var qeSeq = qe.project.getActiveSequence();
+  var found = OneSec_findTrackItemAt(seq.videoTracks[trackIndex], OneSec_secs(clip.start), null);
+  if (!found) return false;
+  var qi = OneSec_qeItem(qeSeq.getVideoTrackAt(trackIndex), found.index);
+  if (!qi) return false;
+  var names = ['Lumetri Color', 'Couleur Lumetri', 'Lumetri-Farbe', 'Color Lumetri'];
+  for (var n = 0; n < names.length; n++) {
+    try {
+      var fx = qe.project.getVideoEffectByName(names[n]);
+      if (fx) { qi.addVideoEffect(fx); if (OneSec_findLumetri(clip)) return true; }
+    } catch (e) {}
+  }
+  return !!OneSec_findLumetri(clip);
+}
+
+// Noms possibles (EN / FR) de chaque paramètre Lumetri que l'on règle.
+var ONESEC_LUMETRI_NAMES = {
+  temperature: ['Temperature', 'Température'],
+  tint: ['Tint', 'Teinte'],
+  exposure: ['Exposure', 'Exposition'],
+  contrast: ['Contrast', 'Contraste'],
+  highlights: ['Highlights', 'Tons clairs', 'Hautes lumières'],
+  shadows: ['Shadows', 'Tons foncés', 'Ombres'],
+  whites: ['Whites', 'Blancs'],
+  blacks: ['Blacks', 'Noirs'],
+  saturation: ['Saturation'],
+  fadedFilm: ['Faded Film', 'Film décoloré', 'Film délavé'],
+  sharpen: ['Sharpen', 'Netteté', 'Accentuation'],
+  vibrance: ['Vibrance', 'Vibrance'],
+  saturation2: ['Saturation'],
+  tintBalance: ['Tint Balance', 'Balance des teintes', 'Équilibre de teinte'],
+  vignetteAmount: ['Amount', 'Quantité', 'Intensité'],
+  vignetteMidpoint: ['Midpoint', 'Point central', 'Milieu'],
+  vignetteRoundness: ['Roundness', 'Rondeur', 'Arrondi'],
+  vignetteFeather: ['Feather', 'Contour progressif', 'Adoucissement']
+};
+
+/** Trouve l'index d'un paramètre : n-ième occurrence d'un des noms candidats. */
+function OneSec_lumetriIndex(comp, key, occurrence) {
+  var names = ONESEC_LUMETRI_NAMES[key], seen = 0;
+  for (var i = 0; i < comp.properties.numItems; i++) {
+    var dn = comp.properties[i].displayName;
+    for (var n = 0; n < names.length; n++) {
+      if (dn === names[n]) {
+        if (seen === (occurrence || 0)) return i;
+        seen++;
+      }
+    }
+  }
+  return -1;
+}
+
+/**
+ * Applique une colo Lumetri à des clips.
+ * args: { videoTrack, grades: [{ start, params: { temperature, tint, exposure, ... } }] }
+ */
+function OneSec_applyGrades(s) {
+  try {
+    var a = OneSec_args(s), seq = OneSec_seq(), track = seq.videoTracks[a.videoTrack];
+    var report = { applied: 0, noLumetri: 0, failedParams: {}, missing: 0 };
+    for (var g = 0; g < a.grades.length; g++) {
+      var gr = a.grades[g], found = OneSec_findTrackItemAt(track, gr.start, null);
+      if (!found) { report.missing++; continue; }
+      var clip = found.item;
+      if (!OneSec_ensureLumetri(seq, a.videoTrack, clip)) { report.noLumetri++; continue; }
+      var comp = OneSec_findLumetri(clip);
+      var params = gr.params;
+      for (var key in params) {
+        if (!params.hasOwnProperty(key) || !ONESEC_LUMETRI_NAMES[key]) continue;
+        // « saturation2 » = la 2e occurrence de « Saturation » (section Créatif)
+        var occ = key === 'saturation2' ? 1 : 0;
+        var idx = OneSec_lumetriIndex(comp, key === 'saturation2' ? 'saturation' : key, occ);
+        if (idx < 0) { report.failedParams[key] = (report.failedParams[key] || 0) + 1; continue; }
+        try {
+          comp.properties[idx].setValue(params[key], true);
+        } catch (e) {
+          try { comp.properties[idx].setValue(params[key]); }
+          catch (e2) { report.failedParams[key] = (report.failedParams[key] || 0) + 1; }
+        }
+      }
+      report.applied++;
+    }
+    return OneSec_ok(report);
+  } catch (e) { return OneSec_err(e); }
+}
+
+/** Retire l'effet Lumetri des clips d'une piste (dans une plage). args: { videoTrack, range? } */
+function OneSec_removeGrades(s) {
+  try {
+    var a = OneSec_args(s), seq = OneSec_seq(), track = seq.videoTracks[a.videoTrack], n = 0;
+    app.enableQE();
+    var qeTrack = qe.project.getActiveSequence().getVideoTrackAt(a.videoTrack);
+    for (var i = 0; i < track.clips.numItems; i++) {
+      var c = track.clips[i], st = OneSec_secs(c.start);
+      if (a.range && (OneSec_secs(c.end) <= a.range.start || st >= a.range.end)) continue;
+      var qi = OneSec_qeItem(qeTrack, i);
+      if (!qi) continue;
+      for (var k = qi.numComponents - 1; k >= 0; k--) {
+        var comp = qi.getComponentAt(k);
+        if (comp && /lumetri/i.test(comp.name)) { try { comp.remove(); n++; } catch (e) {} }
+      }
+    }
+    return OneSec_ok({ removed: n });
+  } catch (e) { return OneSec_err(e); }
+}
+
+
 // ================================================================== CADRAGE
 
 var ONESEC_MOTION_NAMES = {

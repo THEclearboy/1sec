@@ -66,9 +66,10 @@
   function toast(msg, kind) {
     var t = $('toast');
     t.textContent = msg;
+    t.style.whiteSpace = 'pre-wrap';
     t.className = 'toast ' + (kind || '');
     clearTimeout(toast._t);
-    toast._t = setTimeout(function () { t.className = 'toast hidden'; }, kind === 'err' ? 6000 : 3000);
+    toast._t = setTimeout(function () { t.className = 'toast hidden'; }, kind === 'err' ? 12000 : 3000);
   }
   function busy(on, text) {
     $('busy').className = on ? 'busy' : 'busy hidden';
