@@ -267,6 +267,12 @@ function OneSec_clipInfo(pi) {
     var fi = pi.getFootageInterpretation();
     if (fi && fi.frameRate) info.fps = fi.frameRate;
   } catch (e3) {}
+  // Date de tournage (métadonnées XMP), pour l'ordre chronologique
+  try {
+    var xmp = pi.getProjectMetadata();
+    var m = /(xmpDM:shotDate|xmp:CreateDate|exif:DateTimeOriginal|photoshop:DateCreated)[^>]*>([^<]+)</.exec(xmp);
+    if (m) info.created = m[2];
+  } catch (e4) {}
   return info;
 }
 

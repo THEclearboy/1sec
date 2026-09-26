@@ -89,6 +89,12 @@
           <select id="rush-bin"></select></label>
         <button id="btn-bins" class="icon small" title="Rafraîchir les chutiers">↻</button>
       </div>
+      <div class="kv"><span>Ordre des rushes</span>
+        <select id="rush-order">
+          <option value="name">Nom de fichier (DJI, GoPro : chronologique)</option>
+          <option value="created">Date de tournage (métadonnées)</option>
+          <option value="panel">Ordre du panneau Projet</option>
+        </select></div>
       <div class="kv"><span>Durée max avant le marqueur</span>
         <span class="slider"><input type="range" id="moment-len" min="1" max="8" step="0.5" value="3"> <b id="moment-len-v">3 s</b></span></div>
       <div class="row"><button id="btn-rushes" class="primary">Charger les moments</button></div>
@@ -112,7 +118,8 @@
         <div class="kv"><span>Ordre des rushes</span>
           <select id="order">
             <option value="mix">Mélangé (le meilleur au bon moment)</option>
-            <option value="chrono">Chronologique</option>
+            <option value="chrono">Chronologique souple (ordre respecté, meilleurs moments sur les drops)</option>
+            <option value="strict">Chronologique strict (ordre des rushes, sans exception)</option>
           </select></div>
         <div class="checks">
           <label class="check"><input type="checkbox" id="accelerate" checked> Accélérer les coupes dans les montées</label>

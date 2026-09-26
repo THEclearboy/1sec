@@ -115,3 +115,9 @@ test('marqueurs musique : sections et moments forts', () => {
   assert.ok(list.filter(m => m.kind === 'section').length === an.sections.length);
   assert.ok(list.every(m => m.time >= 10));
 });
+
+test('chronologie stricte : les moments dans l\'ordre des rushes, un par plan', () => {
+  const p = mk({ options: { seed: 4, order: 'strict' } });
+  const ids = moments.map(m => m.id);
+  p.shots.forEach((s, i) => assert.strictEqual(s.momentId, ids[i % ids.length], 'plan ' + i));
+});

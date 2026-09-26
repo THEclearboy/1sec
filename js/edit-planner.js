@@ -405,7 +405,18 @@
     if (!moments.length) warnings.push('Aucun moment de rush : ajoutez des marqueurs sur vos rushes (étape 2).');
 
     // Attribution : d'abord les plans importants, puis dans l'ordre chronologique
-    if (moments.length) {
+    if (moments.length && opts.order === 'strict') {
+      // Chronologie stricte : les moments dans l'ordre des rushes, un par plan, sans exception
+      shots.forEach(function (s) { var mid = s.lockedMoment || s.forcedMoment; if (mid) applyMoment(ctx, s, mid); });
+      var cursor = 0;
+      shots.forEach(function (s) {
+        if (s.momentId) return;
+        var m = moments[cursor % moments.length];
+        cursor++;
+        applyMoment(ctx, s, m.id);
+        if (cursor > moments.length) s.reused = true;
+      });
+    } else if (moments.length) {
       shots.forEach(function (s) {
         var mid = s.lockedMoment || s.forcedMoment;
         if (mid) applyMoment(ctx, s, mid);

@@ -19,7 +19,7 @@
       analysis: null,
       sensitivity: 0.6,
       markerOpts: { sections: true, hits: true, bars: false, beats: false },
-      rushSource: 'selection', binId: null,
+      rushSource: 'selection', binId: null, rushOrder: 'name',
       momentLen: 3,
       clips: [],
       momentState: {},
@@ -107,8 +107,15 @@
   }
   function timelineOffset() { return S.music ? S.music.start - (S.music.inPoint || 0) : 0; }
 
+  function sortedClips() {
+    var clips = S.clips.slice();
+    if (S.rushOrder === 'name') clips.sort(function (a, b) { return String(a.name).localeCompare(String(b.name), undefined, { numeric: true }); });
+    else if (S.rushOrder === 'created') clips.sort(function (a, b) { return String(a.created || a.name).localeCompare(String(b.created || b.name)); });
+    return clips;
+  }
+
   function moments() {
-    var ms = P.momentsFromClips(S.clips, { defaultLength: S.momentLen });
+    var ms = P.momentsFromClips(sortedClips(), { defaultLength: S.momentLen });
     ms.forEach(function (m) {
       var st = S.momentState[m.id];
       if (st) { if (st.enabled != null) m.enabled = st.enabled; if (st.rating != null) m.rating = st.rating; }
@@ -262,7 +269,8 @@
       '<div><span>Moments</span><b class="big">' + enabled.length + '</b></div>' +
       '<div><span>Top ★</span><b class="big">' + tops + '</b></div></div>';
     list.innerHTML = '';
-    S.clips.forEach(function (c) {
+    $('rush-order').value = S.rushOrder || 'name';
+    sortedClips().forEach(function (c, ci) {
       var cms = ms.filter(function (m) { return m.clipId === c.nodeId; });
       var box = el('div', { class: 'moments' });
       cms.forEach(function (m) {
@@ -272,7 +280,7 @@
           [fmt(m.peak) + (m.label ? ' ' + m.label : ''), star, tog]));
       });
       list.appendChild(el('div', { class: 'clip' }, [
-        el('div', { class: 'head' }, [el('span', { text: c.name }), el('small', { text: cms.length + ' moment(s)' })]), box
+        el('div', { class: 'head' }, [el('span', { text: '#' + (ci + 1) + ' ' + c.name, title: c.created ? 'tourné le ' + c.created : '' }), el('small', { text: cms.length + ' moment(s)' })]), box
       ]));
     });
   }
@@ -674,6 +682,7 @@
       r.addEventListener('change', function () { S.rushSource = r.value; saveSoon(); });
     });
     $('rush-bin').addEventListener('change', function (e) { S.binId = e.target.value; S.rushSource = 'bin'; renderRushes(); saveSoon(); });
+    $('rush-order').addEventListener('change', function (e) { S.rushOrder = e.target.value; replan(); renderAll(); saveSoon(); });
     $('btn-bins').addEventListener('click', loadBins);
     $('moment-len').addEventListener('input', function (e) { S.momentLen = +e.target.value; replan(); renderAll(); saveSoon(); });
     $('btn-rushes').addEventListener('click', loadRushes);
